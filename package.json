@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "prepublishOnly": "npm run build",
-    "test": "mocha --require ts-node/register --experimental-specifier-resolution=node --loader ts-node/esm test/**/*.test.ts"
+    "test": "mocha --loader=ts-node/esm test/**/*.test.ts"
   },
   "keywords": [],
   "author": "",
