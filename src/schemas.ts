@@ -7,7 +7,10 @@
 
 import { z } from 'zod';
 import { jsonSchemaToZod } from "json-schema-to-zod";
+import { FromSchema } from "json-schema-to-ts";
+import { schemas } from "doc-detective-common";
 
+export type ConfigV3 = FromSchema<typeof schemas.config_v3>;
 /**
  * Basic input schema for the resolver
  * 
