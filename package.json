@@ -20,5 +20,9 @@
     "mocha": "^11.2.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "doc-detective-common": "^3.0.3",
+    "zod": "^3.24.4"
   }
 }
