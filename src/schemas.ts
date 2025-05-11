@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { jsonSchemaToZod } from "json-schema-to-zod";
 
 /**
  * Basic input schema for the resolver
