@@ -1,7 +1,7 @@
-
+import { ConfigV3 } from "./schemas.js";
 
 // Resolve config file as much as possible, given that the tests will run on another machine
-async function resolveConfig({config}: {config: string | object}): Promise<{config: object}> {
+async function resolveConfig({config}: {config: ConfigV3}): Promise<{config: object}> {
   // If config is a string, try to parse it as JSON
   if (typeof config === 'string') {
     try {
