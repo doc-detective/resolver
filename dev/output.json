@@ -1,0 +1,40 @@
+{
+  "specs": [
+    {
+      "specId": "1744e758-bc4a-414e-94b0-becd152e461c",
+      "contentPath": "/home/hawkeyexl/Workspaces/resolver/dev/doc-content-yaml.md",
+      "tests": [
+        {
+          "testId": "doc-detective-docs",
+          "detectSteps": false,
+          "runOn": [],
+          "openApi": [],
+          "contexts": [
+            {
+              "steps": [
+                {
+                  "checkLink": "https://doc-detective.com"
+                },
+                {
+                  "checkLink": "https://doc-detective.com/docs/get-started/intro"
+                },
+                {
+                  "goTo": "https://doc-detective.com/docs/get-started/actions/type"
+                },
+                {
+                  "find": "Special keys"
+                },
+                {
+                  "screenshot": "reference.png"
+                }
+              ],
+              "contextId": "b049d9a8-cd30-4043-8251-d1965d0f9294"
+            }
+          ]
+        }
+      ],
+      "runOn": [],
+      "openApi": []
+    }
+  ]
+}
