@@ -1,5 +1,5 @@
 const { setConfig } = require("./config");
-const { qualityFiles, parseTests, log } = require("./utils");
+const { qualifyFiles, parseTests, log } = require("./utils");
 const { resolveDetectedTests } = require("./resolve");
 // const { telemetryNotice, sendTelemetry } = require("./telem");
 
@@ -49,7 +49,7 @@ async function detectTests({ config }) {
   // telemetryNotice(config);
 
   // Set files
-  const files = await qualityFiles({ config });
+  const files = await qualifyFiles({ config });
   log(config, "debug", `FILES:`);
   log(config, "debug", files);
 

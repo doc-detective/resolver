@@ -13,7 +13,7 @@ const {
   readFile,
 } = require("doc-detective-common");
 
-exports.qualityFiles = qualityFiles;
+exports.qualifyFiles = qualifyFiles;
 exports.parseTests = parseTests;
 exports.outputResults = outputResults;
 exports.loadEnvs = loadEnvs;
@@ -97,7 +97,7 @@ async function fetchFile(fileURL) {
 }
 
 // Inspect and qualify files as valid inputs
-async function qualityFiles({ config }) {
+async function qualifyFiles({ config }) {
   let dirs = [];
   let files = [];
   let sequence = [];
