@@ -16,6 +16,8 @@ exports.detectAndResolveTests = detectAndResolveTests;
 // ##########################################################################`;
 
 async function detectAndResolveTests({ config }) {
+  // Set config
+  config = await setConfig({ config });
   // Detect tests
   const detectedTests = await detectTests({ config });
   // Resolve tests
@@ -24,6 +26,12 @@ async function detectAndResolveTests({ config }) {
 }
 
 async function resolveTests({ config, detectedTests }) {
+  if (!config.environment) {
+    // If environment isn't set, config hasn't been resolved
+    config = await setConfig({ config });
+    log(config, "debug", `CONFIG:`);
+    log(config, "debug", config);
+  }
   // Resolve detected tests
   const resolvedTests = await resolveDetectedTests({ config, detectedTests });
   return resolvedTests;
@@ -31,11 +39,12 @@ async function resolveTests({ config, detectedTests }) {
 
 // Run tests defined in specifications and documentation source files.
 async function detectTests({ config }) {
-  // Set config
-  config = await setConfig({ config });
-  log(config, "debug", `CONFIG:`);
-  log(config, "debug", config);
-
+  if (!config.environment) {
+    // If environment isn't set, config hasn't been resolved
+    config = await setConfig({ config });
+    log(config, "debug", `CONFIG:`);
+    log(config, "debug", config);
+  }
   // // Telemetry notice
   // telemetryNotice(config);
 

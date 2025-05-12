@@ -101,9 +101,7 @@ function resolveContexts({ contexts, test, config }) {
 
   // If no contexts are defined, use default contexts
   if (resolvedContexts.length === 0) {
-    const defaultContext = {
-      platform: config.environment.platform,
-    };
+    const defaultContext = {};
     if (browserRequired && config.environment.apps.length > 0) {
       // Select browser
       const firefox = config.environment.apps.find(
@@ -155,7 +153,7 @@ async function fetchOpenApiDocuments({ config, documentArray }) {
 }
 
 // Iterate through and resolve test specifications and contained tests.
-async function resolveDetectedTests(config, specs) {
+async function resolveDetectedTests({config, detectedTests}) {
   // Set initial shorthand values
   const resolvedTests = {
     specs: [],
@@ -163,8 +161,8 @@ async function resolveDetectedTests(config, specs) {
 
   // Iterate specs
   log(config, "info", "Resolving test specs.");
-  for (const spec of specs) {
-    const resolvedSpec = resolveSpec({ config, spec });
+  for (const spec of detectedTests) {
+    const resolvedSpec = await resolveSpec({ config, spec });
     resolvedTests.specs.push(resolvedSpec);
   }
 
@@ -176,14 +174,15 @@ async function resolveSpec({ config, spec }) {
   log(config, "debug", `SPEC: ${spec.specId}`);
   const resolvedSpec = {
     ...spec,
-    runOn: spec.runOn || configContexts,
+    runOn: spec.runOn || config.runOn || [],
     openApi: await fetchOpenApiDocuments({
       config,
       documentArray: spec.openApi,
     }),
+    tests: [],
   };
   for (const test of spec.tests) {
-    const resolvedTest = resolveTest({ config, spec: resolvedSpec, test });
+    const resolvedTest = await resolveTest({ config, spec: resolvedSpec, test });
     resolvedSpec.tests.push(resolvedTest);
   }
   return resolvedSpec;
@@ -198,11 +197,12 @@ async function resolveTest({ config, spec, test }) {
       config,
       documentArray: test.openApi,
     }),
+    contexts: [],
   };
   delete resolvedTest.steps;
 
   const testContexts = resolveContexts({
-    test: resolvedTest,
+    test: test,
     contexts: resolvedTest.runOn,
     config: config,
   });
@@ -210,7 +210,7 @@ async function resolveTest({ config, spec, test }) {
   for (const context of testContexts) {
     const resolvedContext = await resolveContext({
       config,
-      test: resolvedTest,
+      test: test,
       context,
     });
     resolvedTest.contexts.push(resolvedContext);
