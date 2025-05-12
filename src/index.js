@@ -1,10 +1,11 @@
 const { setConfig } = require("./config");
-const { qualityFiles, parseTests, log, cleanTemp } = require("./utils");
-// const { runSpecs } = require("./tests");
-const { telemetryNotice, sendTelemetry } = require("./telem");
+const { qualityFiles, parseTests, log } = require("./utils");
+const { resolveDetectedTests } = require("./resolve");
+// const { telemetryNotice, sendTelemetry } = require("./telem");
 
 exports.detectTests = detectTests;
 exports.resolveTests = resolveTests;
+exports.detectAndResolveTests = detectAndResolveTests;
 
 // const supportMessage = `
 // ##########################################################################
@@ -14,14 +15,24 @@ exports.resolveTests = resolveTests;
 // # - Open Collective: https://opencollective.com/doc-detective            #
 // ##########################################################################`;
 
-async function resolveTests({config, detectedTests}) {
+async function detectAndResolveTests({ config }) {
+  // Detect tests
+  const detectedTests = await detectTests({ config });
+  // Resolve tests
+  const resolvedTests = await resolveTests({ config, detectedTests });
+  return resolvedTests;
+}
 
+async function resolveTests({ config, detectedTests }) {
+  // Resolve detected tests
+  const resolvedTests = await resolveDetectedTests({ config, detectedTests });
+  return resolvedTests;
 }
 
 // Run tests defined in specifications and documentation source files.
-async function detectTests({config}) {
+async function detectTests({ config }) {
   // Set config
-  config = await setConfig({config});
+  config = await setConfig({ config });
   log(config, "debug", `CONFIG:`);
   log(config, "debug", config);
 
@@ -29,12 +40,12 @@ async function detectTests({config}) {
   // telemetryNotice(config);
 
   // Set files
-  const files = await qualityFiles({config});
+  const files = await qualityFiles({ config });
   log(config, "debug", `FILES:`);
   log(config, "debug", files);
 
   // Set test specs
-  const specs = await parseTests({config, files});
+  const specs = await parseTests({ config, files });
   log(config, "debug", `SPECS:`);
   log(config, "info", specs);
 
