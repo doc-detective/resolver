@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "steps": [
+        {
+          "goTo": "https://duckduckgo.com"
+        },
+        {
+          "find": "/Set As.+/"
+        }
+      ]
+    }
+  ]
+}
