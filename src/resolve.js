@@ -171,9 +171,11 @@ async function resolveDetectedTests({config, detectedTests}) {
 
 
 async function resolveSpec({ config, spec }) {
-  log(config, "debug", `SPEC: ${spec.specId}`);
+  const specId = spec.specId || uuid.v4();
+  log(config, "debug", `SPEC: ${specId}`);
   const resolvedSpec = {
     ...spec,
+    specId: specId,
     runOn: spec.runOn || config.runOn || [],
     openApi: await fetchOpenApiDocuments({
       config,
@@ -189,9 +191,11 @@ async function resolveSpec({ config, spec }) {
 }
 
 async function resolveTest({ config, spec, test }) {
-  log(config, "debug", `TEST: ${test.testId}`);
+  const testId = test.testId || uuid.v4();
+  log(config, "debug", `TEST: ${testId}`);
   const resolvedTest = {
     ...test,
+    testId: testId,
     runOn: test.runOn || spec.runOn,
     openApi: await fetchOpenApiDocuments({
       config,
@@ -220,9 +224,12 @@ async function resolveTest({ config, spec, test }) {
 }
 
 async function resolveContext({ config, test, context }) {
+  const contextId = context.contextId || uuid.v4();
+  log(config, "debug", `CONTEXT: ${contextId}`);
   const resolvedContext = {
     ...context,
     steps: [...test.steps],
+    contextId: contextId,
   };
   return resolvedContext;
 }

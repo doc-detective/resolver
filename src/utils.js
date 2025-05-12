@@ -600,7 +600,6 @@ async function parseTests({ config, files }) {
       // Process non-object
       let id = `${uuid.v4()}`;
       let spec = { specId: id, contentPath: file, tests: [] };
-      let ignore = false;
       const fileType = config.fileTypes.find((fileType) =>
         fileType.extensions.includes(extension)
       );
