@@ -101,21 +101,7 @@ function resolveContexts({ contexts, test, config }) {
 
   // If no contexts are defined, use default contexts
   if (resolvedContexts.length === 0) {
-    const defaultContext = {};
-    if (browserRequired && config.environment.apps.length > 0) {
-      // Select browser
-      const firefox = config.environment.apps.find(
-        (app) => app.name === "firefox"
-      );
-      const chrome = config.environment.apps.find(
-        (app) => app.name === "chrome"
-      );
-      const safari = config.environment.apps.find(
-        (app) => app.name === "safari"
-      );
-      defaultContext.browser = firefox || chrome || safari;
-    }
-    resolvedContexts.push(defaultContext);
+    resolvedContexts.push({});
   }
 
   return resolvedContexts;
