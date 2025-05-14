@@ -7,7 +7,7 @@ main();
 
 async function main() {
   const json = {
-    input: "/home/hawkeyexl/Workspaces/resolver/dev/doc-content-yaml.md",
+    input: "/home/hawkeyexl/Workspaces/resolver/dev/dev.spec.json",
     logLevel: "debug",
   };
   result = await detectAndResolveTests({ config: json });

@@ -1,19 +1,11 @@
 {
-    "id": "cleanup",
-    "tests": [
-      {
-        "steps": [
-          {
-            "action": "setVariables",
-            "path": ".env"
-          },
-          {
-            "action": "runShell",
-            "command": "echo",
-            "args": ["cleanup"]
-          }
-        ]
-      }
-    ]
-  }
-  
+  "tests": [
+    {
+      "steps": [
+        {
+          "runShell": "echo cleanup"
+        }
+      ]
+    }
+  ]
+}

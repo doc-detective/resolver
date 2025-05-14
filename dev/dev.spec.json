@@ -1,6 +1,7 @@
 {
   "tests": [
     {
+      "after": "cleanup.spec.json",
       "steps": [
         {
           "goTo": "https://duckduckgo.com"

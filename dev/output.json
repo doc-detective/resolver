@@ -1,38 +1,194 @@
 {
+  "config": {
+    "input": [
+      "/home/hawkeyexl/Workspaces/resolver/dev/dev.spec.json"
+    ],
+    "logLevel": "debug",
+    "output": ".",
+    "recursive": true,
+    "relativePathBase": "file",
+    "detectSteps": true,
+    "fileTypes": [
+      {
+        "name": "markdown",
+        "extensions": [
+          "md",
+          "markdown",
+          "mdx"
+        ],
+        "inlineStatements": {
+          "testStart": [
+            "{\\/\\*\\s*test\\s+?([\\s\\S]*?)\\s*\\*\\/}",
+            "<!--\\s*test\\s*([\\s\\S]*?)\\s*-->",
+            "\\[comment\\]:\\s+#\\s+\\(test\\s*(.*?)\\s*\\)",
+            "\\[comment\\]:\\s+#\\s+\\(test start\\s*(.*?)\\s*\\)"
+          ],
+          "testEnd": [
+            "{\\/\\*\\s*test end\\s*\\*\\/}",
+            "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->",
+            "\\[comment\\]:\\s+#\\s+\\(test end\\)"
+          ],
+          "ignoreStart": [
+            "{\\/\\*\\s*test ignore start\\s*\\*\\/}",
+            "<!--\\s*test ignore start\\s*-->"
+          ],
+          "ignoreEnd": [
+            "{\\/\\*\\s*test ignore end\\s*\\*\\/}",
+            "<!--\\s*test ignore end\\s*-->"
+          ],
+          "step": [
+            "{\\/\\*\\s*step\\s+?([\\s\\S]*?)\\s*\\*\\/}",
+            "<!--\\s*step\\s*([\\s\\S]*?)\\s*-->",
+            "\\[comment\\]:\\s+#\\s+\\(step\\s*(.*?)\\s*\\)"
+          ]
+        },
+        "markup": [
+          {
+            "name": "checkHyperlink",
+            "regex": [
+              "(?<!\\!)\\[[^\\]]+\\]\\(\\s*(https?:\\/\\/[^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)"
+            ],
+            "actions": [
+              "checkLink"
+            ]
+          },
+          {
+            "name": "clickOnscreenText",
+            "regex": [
+              "\\b(?:[Cc]lick|[Tt]ap|[Ll]eft-click|[Cc]hoose|[Ss]elect|[Cc]heck)\\b\\s+\\*\\*((?:(?!\\*\\*).)+)\\*\\*"
+            ],
+            "actions": [
+              "click"
+            ]
+          },
+          {
+            "name": "findOnscreenText",
+            "regex": [
+              "\\*\\*((?:(?!\\*\\*).)+)\\*\\*"
+            ],
+            "actions": [
+              "find"
+            ]
+          },
+          {
+            "name": "goToUrl",
+            "regex": [
+              "\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+\\[[^\\]]+\\]\\(\\s*(https?:\\/\\/[^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)"
+            ],
+            "actions": [
+              "goTo"
+            ]
+          },
+          {
+            "name": "screenshotImage",
+            "regex": [
+              "!\\[[^\\]]*\\]\\(\\s*([^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)\\s*\\{(?=[^}]*\\.screenshot)[^}]*\\}"
+            ],
+            "actions": [
+              "screenshot"
+            ]
+          },
+          {
+            "name": "typeText",
+            "regex": [
+              "\\b(?:press|enter|type)\\b\\s+\"([^\"]+)\""
+            ],
+            "actions": [
+              "type"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "asciidoc",
+        "extensions": [
+          "adoc",
+          "asciidoc",
+          "asc"
+        ],
+        "inlineStatements": {
+          "testStart": [
+            "\\/\\/\\s+\\(\\s*test\\s+([\\s\\S]*?)\\s*\\)"
+          ],
+          "testEnd": [
+            "\\/\\/\\s+\\(\\s*test end\\s*\\)"
+          ],
+          "ignoreStart": [
+            "\\/\\/\\s+\\(\\s*test ignore start\\s*\\)"
+          ],
+          "ignoreEnd": [
+            "\\/\\/\\s+\\(\\s*test ignore end\\s*\\)"
+          ],
+          "step": [
+            "\\/\\/\\s+\\(\\s*step\\s+([\\s\\S]*?)\\s*\\)"
+          ]
+        },
+        "markup": []
+      },
+      {
+        "name": "html",
+        "extensions": [
+          "html",
+          "htm"
+        ],
+        "inlineStatements": {
+          "testStart": [
+            "<!--\\s*test\\s+?([\\s\\S]*?)\\s*-->"
+          ],
+          "testEnd": [
+            "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->"
+          ],
+          "ignoreStart": [
+            "<!--\\s*test ignore start\\s*-->"
+          ],
+          "ignoreEnd": [
+            "<!--\\s*test ignore end\\s*-->"
+          ],
+          "step": [
+            "<!--\\s*step\\s+?([\\s\\S]*?)\\s*-->"
+          ]
+        },
+        "markup": []
+      }
+    ],
+    "telemetry": {
+      "send": true
+    },
+    "configId": "941e62ef-9b5c-4441-844e-e923b909a021",
+    "environment": {
+      "arch": "x64",
+      "platform": "linux",
+      "workingDirectory": "/home/hawkeyexl/Workspaces/resolver"
+    }
+  },
   "specs": [
     {
-      "specId": "1744e758-bc4a-414e-94b0-becd152e461c",
-      "contentPath": "/home/hawkeyexl/Workspaces/resolver/dev/doc-content-yaml.md",
       "tests": [
         {
-          "testId": "doc-detective-docs",
-          "detectSteps": false,
+          "after": "/home/hawkeyexl/Workspaces/resolver/dev/cleanup.spec.json",
+          "testId": "196111d2-c028-4e5c-b930-5f55cfe7fb4e",
           "runOn": [],
           "openApi": [],
           "contexts": [
             {
+              "after": "/home/hawkeyexl/Workspaces/resolver/dev/cleanup.spec.json",
               "steps": [
                 {
-                  "checkLink": "https://doc-detective.com"
+                  "goTo": "https://duckduckgo.com"
                 },
                 {
-                  "checkLink": "https://doc-detective.com/docs/get-started/intro"
+                  "find": "/Set As.+/"
                 },
                 {
-                  "goTo": "https://doc-detective.com/docs/get-started/actions/type"
-                },
-                {
-                  "find": "Special keys"
-                },
-                {
-                  "screenshot": "reference.png"
+                  "runShell": "echo cleanup"
                 }
               ],
-              "contextId": "b049d9a8-cd30-4043-8251-d1965d0f9294"
+              "contextId": "4881f8ee-514a-4e7c-94e9-3b21cf9fb344"
             }
           ]
         }
       ],
+      "specId": "a4137454-f4f8-4a78-aa1b-45ac861cb1f9",
       "runOn": [],
       "openApi": []
     }
