@@ -26,13 +26,17 @@ exports.detectAndResolveTests = detectAndResolveTests;
  * @async
  * @param {Object} options - The options object
  * @param {Object} options.config - The configuration object for test detection and resolution
- * @returns {Promise<Array>} A promise that resolves to an array of resolved tests
+ * @returns {Promise<Object>} A promise that resolves to an object of resolved tests
  */
 async function detectAndResolveTests({ config }) {
   // Set config
   config = await setConfig({ config });
   // Detect tests
   const detectedTests = await detectTests({ config });
+  if (!detectedTests || detectedTests.length === 0) {
+    log(config, "warn", "No tests detected.");
+    return null;
+  }
   // Resolve tests
   const resolvedTests = await resolveTests({ config, detectedTests });
   return resolvedTests;
@@ -45,8 +49,8 @@ async function detectAndResolveTests({ config }) {
  * @async
  * @param {Object} params - The parameters object.
  * @param {Object} params.config - The configuration object, which may need to be resolved if environment isn't set.
- * @param {Array} params.detectedTests - The tests that have been detected and need to be resolved.
- * @returns {Promise<Array>} A promise that resolves to an array of resolved test configurations.
+ * @param {Object} params.detectedTests - The tests that have been detected and need to be resolved.
+ * @returns {Promise<Object>} A promise that resolves to an object of resolved test configurations.
  */
 async function resolveTests({ config, detectedTests }) {
   if (!config.environment) {
