@@ -266,5 +266,7 @@ function getEnvironment() {
   environment.arch = os.arch();
   // Detect system platform
   environment.platform = platformMap[process.platform];
+  // Detect working directory
+  environment.workingDirectory = process.cwd();
   return environment;
 }
