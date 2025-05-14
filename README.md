@@ -1,33 +1,66 @@
-# Doc Detective Core
+# Doc Detective Resolver
 
-![Current version](https://img.shields.io/github/package-json/v/doc-detective/doc-detective-core?color=orange)
-[![NPM Shield](https://img.shields.io/npm/v/doc-detective-core)](https://www.npmjs.com/package/doc-detective-core)
-[![Test status](https://img.shields.io/github/actions/workflow/status/doc-detective/doc-detective-core/npm-test.yaml?label=tests)](https://github.com/doc-detective/doc-detective-core/actions/workflows/npm-test.yaml)
+![Current version](https://img.shields.io/github/package-json/v/doc-detective/doc-detective-resolver?color=orange)
+[![NPM Shield](https://img.shields.io/npm/v/doc-detective-resolver)](https://www.npmjs.com/package/doc-detective-resolver)
 [![Discord Shield](https://img.shields.io/badge/chat-on%20discord-purple)](https://discord.gg/2M7wXEThfF)
 [![Docs Shield](https://img.shields.io/badge/docs-doc--detective.com-blue)](https://doc-detective.com)
 
-Low-code documentation testing embedded in your project via [NPM](https://www.npmjs.com/package/doc-detective-core).
+Detect and resolve documentation into Doc Detective tests. This package helps you find and process tests embedded in your documentation.
 
-For pre-built implementations, see [Doc Detective](https://github.com/doc-detective/doc-detective).
+This package is part of the [Doc Detective](https://github.com/doc-detective/doc-detective) ecosystem.
 
 ## Install
 
 ```bash
-npm i doc-detective-core
+npm i doc-detective-resolver
 ```
 
 ## Init
 
 ```javascript
-const { runTests, runCoverage } = require("doc-detective-core");
+const { detectTests, resolveTests, detectAndResolveTests } = require("doc-detective-resolver");
 ```
 
 ## Functions
 
-### `runTests({config})`
+### `detectAndResolveTests({ config })`
 
-Run test specifications. Returns a test report object. Takes [`config`](https://doc-detective.com/reference/schemas/config.html) as input. Parses paths in the `config.input` for test specifications to perform.
+Detects and resolves tests based on the provided configuration. This function performs the complete workflow:
+1. Sets and validates the configuration
+2. Detects tests according to the configuration
+3. Resolves the detected tests
+
+Returns a promise that resolves to an object of resolved tests, or null if no tests are detected.
+
+```javascript
+const { detectAndResolveTests } = require("doc-detective-resolver");
+const resolvedTests = await detectAndResolveTests({ config });
+```
+
+### `detectTests({ config })`
+
+Detects and processes test specifications based on provided configuration without resolving them. This function:
+1. Resolves configuration if not already done
+2. Qualifies files based on configuration
+3. Parses test specifications from the qualified files
+
+Returns a promise resolving to an array of test specifications.
+
+```javascript
+const { detectTests } = require("doc-detective-resolver");
+const detectedTests = await detectTests({ config });
+```
+
+### `resolveTests({ config, detectedTests })`
+
+Resolves previously detected test configurations according to the provided configuration.
+
+```javascript
+const { detectTests, resolveTests } = require("doc-detective-resolver");
+const detectedTests = await detectTests({ config });
+const resolvedTests = await resolveTests({ config, detectedTests });
+```
 
 ## Contributions
 
-Looking to help out? See our [contributions guide](https://github.com/doc-detective/doc-detective-core/blob/main/CONTRIBUTIONS.md) for more info. If you can't contribute code, you can still help by reporting issues, suggesting new features, improving the documentation, or sponsoring the project.
+Looking to help out? See our [contributions guide](https://github.com/doc-detective/doc-detective-resolver/blob/main/CONTRIBUTIONS.md) for more info. If you can't contribute code, you can still help by reporting issues, suggesting new features, improving the documentation, or sponsoring the project.
