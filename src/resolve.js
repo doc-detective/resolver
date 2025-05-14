@@ -142,6 +142,7 @@ async function fetchOpenApiDocuments({ config, documentArray }) {
 async function resolveDetectedTests({config, detectedTests}) {
   // Set initial shorthand values
   const resolvedTests = {
+    config: config,
     specs: [],
   };
 
