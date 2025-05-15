@@ -1,8 +1,4 @@
-const os = require("os");
-const { log, replaceEnvs } = require("./utils");
-const axios = require("axios");
-const path = require("path");
-const { spawn } = require("child_process");
+const { log } = require("./utils");
 const uuid = require("uuid");
 const { loadDescription } = require("./openapi");
 
@@ -186,7 +182,7 @@ async function resolveTest({ config, spec, test }) {
     runOn: test.runOn || spec.runOn,
     openApi: await fetchOpenApiDocuments({
       config,
-      documentArray: test.openApi,
+      documentArray: [...spec.openApi, ...(test.openApi || [])],
     }),
     contexts: [],
   };
@@ -215,6 +211,7 @@ async function resolveContext({ config, test, context }) {
   log(config, "debug", `CONTEXT: ${contextId}`);
   const resolvedContext = {
     ...context,
+    openApi: test.openApi || [],
     steps: [...test.steps],
     contextId: contextId,
   };
