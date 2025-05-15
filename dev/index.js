@@ -8,6 +8,14 @@ main();
 async function main() {
   const json = {
     input: "/home/hawkeyexl/Workspaces/resolver/dev/dev.spec.json",
+    integrations:{
+      openApi: [
+        {
+          name: "reqres",
+          descriptionPath: "/home/hawkeyexl/Workspaces/resolver/dev/reqres.openapi.json",
+        }
+      ]
+    },
     logLevel: "debug",
   };
   result = await detectAndResolveTests({ config: json });
