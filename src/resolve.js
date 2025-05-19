@@ -135,7 +135,7 @@ async function fetchOpenApiDocuments({ config, documentArray }) {
 }
 
 // Iterate through and resolve test specifications and contained tests.
-async function resolveDetectedTests({config, detectedTests}) {
+async function resolveDetectedTests({ config, detectedTests }) {
   // Set initial shorthand values
   const resolvedTests = {
     config: config,
@@ -152,7 +152,6 @@ async function resolveDetectedTests({config, detectedTests}) {
   return resolvedTests;
 }
 
-
 async function resolveSpec({ config, spec }) {
   const specId = spec.specId || uuid.v4();
   log(config, "debug", `SPEC: ${specId}`);
@@ -167,7 +166,11 @@ async function resolveSpec({ config, spec }) {
     tests: [],
   };
   for (const test of spec.tests) {
-    const resolvedTest = await resolveTest({ config, spec: resolvedSpec, test });
+    const resolvedTest = await resolveTest({
+      config,
+      spec: resolvedSpec,
+      test,
+    });
     resolvedSpec.tests.push(resolvedTest);
   }
   return resolvedSpec;

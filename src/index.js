@@ -17,12 +17,12 @@ exports.detectAndResolveTests = detectAndResolveTests;
 
 /**
  * Detects and resolves tests based on the provided configuration.
- * 
+ *
  * This function performs the following steps:
  * 1. Sets and validates the configuration
  * 2. Detects tests according to the configuration
  * 3. Resolves the detected tests
- * 
+ *
  * @async
  * @param {Object} options - The options object
  * @param {Object} options.config - The configuration object for test detection and resolution
@@ -45,7 +45,7 @@ async function detectAndResolveTests({ config }) {
 /**
  * Resolves test configurations by first ensuring the environment is set in the config,
  * then processing the detected tests to resolve them according to the configuration.
- * 
+ *
  * @async
  * @param {Object} params - The parameters object.
  * @param {Object} params.config - The configuration object, which may need to be resolved if environment isn't set.
@@ -66,12 +66,12 @@ async function resolveTests({ config, detectedTests }) {
 
 /**
  * Detects and processes test specifications based on provided configuration.
- * 
+ *
  * This function performs the following steps:
  * 1. Resolves configuration if not already done
  * 2. Qualifies files based on configuration
  * 3. Parses test specifications from the qualified files
- * 
+ *
  * @async
  * @param {Object} options - The options object
  * @param {Object} options.config - Configuration object, may be unresolved
