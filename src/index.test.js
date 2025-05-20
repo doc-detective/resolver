@@ -1,7 +1,6 @@
 const assert = require("assert");
 const sinon = require("sinon");
 const proxyquire = require("proxyquire");
-const { expect } = require("chai");
 const fs = require("fs");
 const { detectTests, resolveTests, detectAndResolveTests } = require("./index");
 
