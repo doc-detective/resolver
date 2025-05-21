@@ -31,20 +31,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          # Cache key uses the contents of `package-lock.json` to identify unique cache
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-node-
-          path: |
-            node_modules
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+          registry-url: https://registry.npmjs.org/
 
       - run: npm ci
       - run: npm test
@@ -55,20 +46,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
           registry-url: https://registry.npmjs.org/
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          # Cache key uses the contents of `package-lock.json` to identify unique cache
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.OS }}-node-
-          path: |
-            node_modules
 
       - run: npm ci
       - run: npm publish
