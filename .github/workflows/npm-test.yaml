@@ -8,9 +8,13 @@ on:
     branches:
       - main
   pull_request:
-    types: [opened, reopened, synchronize]
+    types:
+      - opened
+      - reopened
+      - synchronize
   release:
-    types: [published]
+    types:
+      - published
   workflow_dispatch:
 
 jobs:
@@ -19,15 +23,15 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node: 
+        node:
           - 18
           - 20
           - 22
           - 24
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -41,7 +45,7 @@ jobs:
             ${{ runner.OS }}-node-
           path: |
             node_modules
-      
+
       - run: npm ci
       - run: npm test
 
@@ -51,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           registry-url: https://registry.npmjs.org/
@@ -65,7 +69,7 @@ jobs:
             ${{ runner.OS }}-node-
           path: |
             node_modules
-            
+
       - run: npm ci
       - run: npm publish
         env:
