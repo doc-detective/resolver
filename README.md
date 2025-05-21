@@ -1,6 +1,6 @@
 # Doc Detective Resolver
 
-![Current version](https://img.shields.io/github/package-json/v/doc-detective/doc-detective-resolver?color=orange)
+![Current version](https://img.shields.io/github/package-json/v/doc-detective/resolver?color=orange)
 [![NPM Shield](https://img.shields.io/npm/v/doc-detective-resolver)](https://www.npmjs.com/package/doc-detective-resolver)
 [![Discord Shield](https://img.shields.io/badge/chat-on%20discord-purple)](https://discord.gg/2M7wXEThfF)
 [![Docs Shield](https://img.shields.io/badge/docs-doc--detective.com-blue)](https://doc-detective.com)
