@@ -24,7 +24,7 @@ reviews:
     ignore_title_keywords: []
     labels: []
     drafts: false
-    base_branches: ["rc"]
+    base_branches: ["main","rc"]
   tools:
     shellcheck:
       enabled: true
