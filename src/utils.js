@@ -251,6 +251,18 @@ async function isValidSourceFile({ config, files, source }) {
   return true;
 }
 
+/**
+ * Parses raw test content into an array of structured test objects.
+ *
+ * Processes input content using inline statement and markup regex patterns defined by {@link fileType}, extracting test and step definitions. Supports detection of test boundaries, ignored sections, and step definitions, including batch markup matches. Converts and validates extracted objects against the test and step schemas, handling both v2 and v3 formats. Returns an array of validated test objects with their associated steps.
+ *
+ * @param {Object} options - Options for parsing.
+ * @param {Object} options.config - Test configuration object.
+ * @param {string|Object} options.content - Raw file content as a string or object.
+ * @param {string} options.filePath - Path to the file being parsed.
+ * @param {Object} options.fileType - File type definition containing parsing rules.
+ * @returns {Array<Object>} Array of parsed and validated test objects.
+ */
 async function parseContent({ config, content, filePath, fileType }) {
   const statements = [];
   const statementTypes = [

@@ -5,6 +5,11 @@ const path = require("path");
 
 main();
 
+/**
+ * Detects and resolves test cases in a specified markdown file using configured patterns and actions, then outputs the results to a JSON file.
+ *
+ * The function analyzes the input markdown file for test-related statements and code blocks according to the provided configuration, processes detected tests, and writes the structured results to "output.json" in the current directory.
+ */
 async function main() {
   const json = {
     input: "/home/hawkeyexl/Workspaces/resolver/dev/doc-content copy.md",
