@@ -343,7 +343,7 @@ async function parseContent({ config, content, filePath, fileType }) {
         if (matches.length > 0 && markup.batchMatches) {
           // Combine all matches into a single match
           const combinedMatch = {
-            1: matches.map((match) => match[1] || match[0]).join(""),
+            1: matches.map((match) => match[1] || match[0]).join("\n"),
             type: "detectedStep",
             markup: markup,
             sortIndex: Math.min(...matches.map((match) => match.index)),
