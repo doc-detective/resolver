@@ -118,20 +118,10 @@ describe("OpenAPI Utilities", () => {
       expect(isOperationSafe(operation)).to.be.false;
     });
     
-    it("should respect x-doc-detective.safe override", () => {
-      const unsafeGet = {
-        method: "get",
-        "x-doc-detective": {
-          safe: false
-        }
-      };
-      expect(isOperationSafe(unsafeGet)).to.be.false;
-      
+    it("should consider operations with x-doc-detective safe regardless of method", () => {
       const safeDelete = {
         method: "delete",
-        "x-doc-detective": {
-          safe: true
-        }
+        "x-doc-detective": {}
       };
       expect(isOperationSafe(safeDelete)).to.be.true;
     });
@@ -197,7 +187,7 @@ describe("OpenAPI Utilities", () => {
       expect(spec).to.be.an("object");
       expect(spec.specId).to.include("openapi-test");
       expect(spec.tests).to.be.an("array");
-      expect(spec.tests).to.have.lengthOf(2); // Only GET and POST are safe
+      expect(spec.tests).to.have.lengthOf(3); // All operations with x-doc-detective are considered safe now
       expect(spec.openApi).to.be.an("array").that.has.lengthOf(1);
       expect(spec.openApi[0].definition).to.deep.equal(openApiDoc);
     });

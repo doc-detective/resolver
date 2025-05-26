@@ -547,9 +547,9 @@ function extractOperations(openApiDoc) {
  * @returns {Boolean} - True if the operation is safe, false otherwise.
  */
 function isOperationSafe(operation) {
-  // Check if operation has explicit safety configuration
-  if (operation["x-doc-detective"]?.safe !== undefined) {
-    return operation["x-doc-detective"].safe;
+  // Operations with x-doc-detective configured are considered safe
+  if (operation["x-doc-detective"]) {
+    return true;
   }
 
   // Default safety based on HTTP method

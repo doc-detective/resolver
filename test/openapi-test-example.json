@@ -126,9 +126,7 @@
             }
           }
         ],
-        "x-doc-detective": {
-          "safe": true
-        },
+        "x-doc-detective": {},
         "requestBody": {
           "content": {
             "application/json": {

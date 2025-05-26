@@ -44,8 +44,8 @@ describe("OpenAPI Integration Tests", () => {
     expect(spec.tests).to.be.an("array");
     
     // We expect 3 tests (GET /users, POST /users, GET /users/{userId}, PUT /users/{userId} with safe override)
-    // DELETE is not included as it's unsafe
-    expect(spec.tests).to.have.lengthOf(4);
+    // DELETE is now included because it has an x-doc-detective extension
+    expect(spec.tests).to.have.lengthOf(5);
     
     // Verify each test has the expected format
     spec.tests.forEach(test => {

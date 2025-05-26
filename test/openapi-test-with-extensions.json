@@ -71,7 +71,6 @@
         "operationId": "deleteProduct",
         "summary": "Delete a product",
         "x-doc-detective": {
-          "safe": true,
           "after": ["getProducts"]
         },
         "parameters": [
