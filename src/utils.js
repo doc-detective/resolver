@@ -12,6 +12,7 @@ const {
   transformToSchemaKey,
   readFile,
 } = require("doc-detective-common");
+const { isOpenApi3File, transformOpenApiToSpec } = require("./openapi");
 
 exports.qualifyFiles = qualifyFiles;
 exports.parseTests = parseTests;
@@ -186,6 +187,12 @@ async function isValidSourceFile({ config, files, source }) {
       );
       return false;
     }
+
+    // Check if it's an OpenAPI file (we accept these regardless of validation)
+    if (isOpenApi3File(content, source)) {
+      return true;
+    }
+
     const validation = validate({
       schemaKey: "spec_v3",
       object: content,
@@ -546,6 +553,32 @@ async function parseTests({ config, files }) {
     content = await readFile({ fileURLOrPath: file });
 
     if (typeof content === "object") {
+      // Check if it's an OpenAPI file
+      if (isOpenApi3File(content, file)) {
+        log(config, "info", `Detected OpenAPI 3.x file: ${file}`);
+        
+        try {
+          // Transform OpenAPI to Doc Detective test specification
+          const openApiSpec = transformOpenApiToSpec(content, file, config);
+          if (openApiSpec && openApiSpec.tests && openApiSpec.tests.length > 0) {
+            specs.push(openApiSpec);
+          } else {
+            log(
+              config,
+              "warning",
+              `No valid tests could be generated from OpenAPI file: ${file}`
+            );
+          }
+        } catch (error) {
+          log(
+            config,
+            "error", 
+            `Failed to transform OpenAPI file ${file}: ${error.message}`
+          );
+        }
+        continue;
+      }
+      
       // Resolve to catch any relative setup or cleanup paths
       content = await resolvePaths({
         config: config,

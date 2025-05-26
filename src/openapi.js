@@ -1,9 +1,41 @@
-const { replaceEnvs } = require("./utils");
 const { JSONSchemaFaker } = require("json-schema-faker");
 const { readFile } = require("doc-detective-common");
 const parser = require("@apidevtools/json-schema-ref-parser");
+const path = require("path");
 
 JSONSchemaFaker.option({ requiredOnly: true });
+
+// Helper function for environment variable replacement
+function replaceEnvs(obj) {
+  if (typeof obj !== "object" || obj === null) return obj;
+
+  const result = Array.isArray(obj) ? [] : {};
+
+  for (const key in obj) {
+    let value = obj[key];
+
+    if (typeof value === "string") {
+      // Replace environment variables in string values
+      const matches = value.match(/\$([a-zA-Z0-9_]+)/g);
+      if (matches) {
+        for (const match of matches) {
+          const envVar = match.substring(1);
+          const envValue = process.env[envVar];
+          if (envValue !== undefined) {
+            value = value.replace(match, envValue);
+          }
+        }
+      }
+    } else if (typeof value === "object" && value !== null) {
+      // Recursively replace in nested objects/arrays
+      value = replaceEnvs(value);
+    }
+
+    result[key] = value;
+  }
+
+  return result;
+}
 
 /**
  * Dereferences an OpenAPI or Arazzo description
@@ -405,4 +437,331 @@ function checkForExamples(definition = {}, exampleKey = "") {
   return false;
 }
 
-module.exports = { getOperation, loadDescription };
+/**
+ * Checks if a file is an OpenAPI 3.x specification.
+ *
+ * @param {Object} content - The file content to check.
+ * @param {String} filepath - The path to the file.
+ * @returns {Boolean} - True if the file is an OpenAPI 3.x specification, false otherwise.
+ */
+function isOpenApi3File(content, filepath) {
+  if (!content || typeof content !== "object") {
+    return false;
+  }
+
+  // Check the file extension
+  const ext = path.extname(filepath).toLowerCase();
+  if (![".json", ".yaml", ".yml"].includes(ext)) {
+    return false;
+  }
+
+  // Check if it has the openapi field and it starts with "3."
+  if (content.openapi && content.openapi.startsWith("3.")) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Transforms an OpenAPI document into a Doc Detective test specification.
+ *
+ * @param {Object} openApiDoc - The OpenAPI document.
+ * @param {String} filePath - Path to the original file.
+ * @param {Object} config - The configuration object.
+ * @returns {Object} - The Doc Detective test specification.
+ */
+function transformOpenApiToSpec(openApiDoc, filePath, config) {
+  // Create spec object
+  const id = `openapi-${path.basename(filePath, path.extname(filePath))}`;
+  const spec = { 
+    specId: id, 
+    contentPath: filePath, 
+    tests: [],
+    openApi: [{
+      name: openApiDoc.info?.title || id,
+      definition: openApiDoc
+    }]
+  };
+
+  // Extract operations
+  const operations = extractOperations(openApiDoc);
+
+  // Create tests from operations
+  for (const operation of operations) {
+    try {
+      const test = transformOperationToTest(operation, openApiDoc, config);
+      if (test) {
+        spec.tests.push(test);
+      }
+    } catch (error) {
+      console.warn(`Error transforming operation ${operation.operationId}: ${error.message}`);
+    }
+  }
+
+  return spec;
+}
+
+/**
+ * Extracts operations from an OpenAPI document.
+ *
+ * @param {Object} openApiDoc - The OpenAPI document.
+ * @returns {Array} - Array of operation objects.
+ */
+function extractOperations(openApiDoc) {
+  const operations = [];
+
+  // Get default configuration
+  const rootConfig = openApiDoc["x-doc-detective"] || {};
+  
+  for (const path in openApiDoc.paths) {
+    for (const method in openApiDoc.paths[path]) {
+      // Skip non-operation fields like parameters
+      if (["parameters", "servers", "summary", "description"].includes(method)) {
+        continue;
+      }
+      
+      const operation = openApiDoc.paths[path][method];
+      
+      // Add path and method to the operation
+      operation.path = path;
+      operation.method = method;
+      
+      // Merge x-doc-detective configurations
+      operation["x-doc-detective"] = {
+        ...(rootConfig || {}),
+        ...(operation["x-doc-detective"] || {})
+      };
+      
+      operations.push(operation);
+    }
+  }
+
+  return operations;
+}
+
+/**
+ * Determines if an operation is safe to execute automatically.
+ *
+ * @param {Object} operation - The operation to check.
+ * @returns {Boolean} - True if the operation is safe, false otherwise.
+ */
+function isOperationSafe(operation) {
+  // Check if operation has explicit safety configuration
+  if (operation["x-doc-detective"]?.safe !== undefined) {
+    return operation["x-doc-detective"].safe;
+  }
+
+  // Default safety based on HTTP method
+  const safeMethods = ["get", "head", "options", "post"];
+  return safeMethods.includes(operation.method.toLowerCase());
+}
+
+/**
+ * Transforms an OpenAPI operation into a Doc Detective test.
+ *
+ * @param {Object} operation - The OpenAPI operation.
+ * @param {Object} openApiDoc - The full OpenAPI document for resolving dependencies.
+ * @param {Object} config - The configuration object.
+ * @returns {Object} - The Doc Detective test.
+ */
+function transformOperationToTest(operation, openApiDoc, config) {
+  // Skip unsafe operations
+  if (!isOperationSafe(operation)) {
+    console.log(`Skipping unsafe operation: ${operation.operationId || operation.path}`);
+    return null;
+  }
+
+  // Create test
+  const test = {
+    id: operation.operationId || `${operation.method}-${operation.path}`,
+    description: operation.summary || operation.description || `${operation.method} ${operation.path}`,
+    steps: []
+  };
+
+  // Add before steps
+  const beforeSteps = createDependencySteps(operation["x-doc-detective"]?.before, openApiDoc);
+  if (beforeSteps) {
+    test.steps.push(...beforeSteps);
+  }
+
+  // Add main operation step
+  const mainStep = createHttpRequestStep(operation);
+  test.steps.push(mainStep);
+
+  // Add after steps
+  const afterSteps = createDependencySteps(operation["x-doc-detective"]?.after, openApiDoc);
+  if (afterSteps) {
+    test.steps.push(...afterSteps);
+  }
+
+  return test;
+}
+
+/**
+ * Creates an httpRequest step from an OpenAPI operation.
+ *
+ * @param {Object} operation - The OpenAPI operation.
+ * @returns {Object} - The httpRequest step.
+ */
+function createHttpRequestStep(operation) {
+  const step = {
+    action: "httpRequest",
+    openApi: {}
+  };
+  
+  // Use operationId if available
+  if (operation.operationId) {
+    step.openApi.operationId = operation.operationId;
+  } else {
+    step.openApi.path = operation.path;
+    step.openApi.method = operation.method;
+  }
+
+  // Add OpenAPI configuration from x-doc-detective
+  if (operation["x-doc-detective"]) {
+    const config = operation["x-doc-detective"];
+    
+    // Add server if specified
+    if (config.server) {
+      step.openApi.server = config.server;
+    }
+    
+    // Add validateSchema if specified
+    if (config.validateSchema !== undefined) {
+      step.openApi.validateSchema = config.validateSchema;
+    }
+    
+    // Add mockResponse if specified
+    if (config.mockResponse !== undefined) {
+      step.openApi.mockResponse = config.mockResponse;
+    }
+    
+    // Add statusCodes if specified
+    if (config.statusCodes) {
+      step.openApi.statusCodes = config.statusCodes;
+    }
+    
+    // Add useExample if specified
+    if (config.useExample !== undefined) {
+      step.openApi.useExample = config.useExample;
+    }
+    
+    // Add exampleKey if specified
+    if (config.exampleKey) {
+      step.openApi.exampleKey = config.exampleKey;
+    }
+    
+    // Add requestHeaders if specified
+    if (config.requestHeaders) {
+      step.requestHeaders = config.requestHeaders;
+    }
+    
+    // Add responseHeaders if specified
+    if (config.responseHeaders) {
+      step.responseHeaders = config.responseHeaders;
+    }
+  }
+  
+  return step;
+}
+
+/**
+ * Creates steps for dependency operations.
+ *
+ * @param {Array} dependencies - Array of operation dependencies.
+ * @param {Object} openApiDoc - The full OpenAPI document.
+ * @returns {Array} - Array of steps for the dependencies.
+ */
+function createDependencySteps(dependencies, openApiDoc) {
+  if (!dependencies || !dependencies.length) {
+    return null;
+  }
+  
+  const steps = [];
+  
+  for (const dep of dependencies) {
+    let operation;
+    
+    if (typeof dep === 'string') {
+      // If dependency is just a string, treat as operationId
+      operation = findOperationById(dep, openApiDoc);
+    } else if (dep.operationId) {
+      // If dependency has operationId
+      operation = findOperationById(dep.operationId, openApiDoc);
+    } else if (dep.path && dep.method) {
+      // If dependency has path and method
+      operation = findOperationByPath(dep.path, dep.method, openApiDoc);
+    }
+    
+    if (operation) {
+      steps.push(createHttpRequestStep(operation));
+    }
+  }
+  
+  return steps;
+}
+
+/**
+ * Finds an operation by its operationId.
+ *
+ * @param {String} operationId - The operationId to find.
+ * @param {Object} openApiDoc - The OpenAPI document to search.
+ * @returns {Object} - The operation if found, null otherwise.
+ */
+function findOperationById(operationId, openApiDoc) {
+  for (const path in openApiDoc.paths) {
+    for (const method in openApiDoc.paths[path]) {
+      if (["parameters", "servers", "summary", "description"].includes(method)) {
+        continue;
+      }
+      
+      const operation = openApiDoc.paths[path][method];
+      
+      if (operation.operationId === operationId) {
+        operation.path = path;
+        operation.method = method;
+        return operation;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Finds an operation by path and method.
+ *
+ * @param {String} pathPattern - The path pattern to find.
+ * @param {String} method - The HTTP method.
+ * @param {Object} openApiDoc - The OpenAPI document to search.
+ * @returns {Object} - The operation if found, null otherwise.
+ */
+function findOperationByPath(pathPattern, method, openApiDoc) {
+  const normMethod = method.toLowerCase();
+  
+  // Try exact match first
+  if (openApiDoc.paths[pathPattern] && openApiDoc.paths[pathPattern][normMethod]) {
+    const operation = openApiDoc.paths[pathPattern][normMethod];
+    operation.path = pathPattern;
+    operation.method = normMethod;
+    return operation;
+  }
+  
+  // No match found
+  return null;
+}
+
+module.exports = { 
+  getOperation, 
+  loadDescription, 
+  isOpenApi3File,
+  transformOpenApiToSpec,
+  extractOperations,
+  transformOperationToTest,
+  isOperationSafe,
+  createHttpRequestStep,
+  createDependencySteps,
+  findOperationById,
+  findOperationByPath
+};
