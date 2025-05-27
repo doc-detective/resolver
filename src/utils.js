@@ -524,7 +524,7 @@ async function parseContent({ config, content, filePath, fileType }) {
       log(
         config,
         "warning",
-        `Couldn't convert some steps in ${filePath} to a valid test.Skipping. Errors: ${validation.errors}`
+        `Couldn't convert some steps in ${filePath} to a valid test. Skipping. Errors: ${validation.errors}`
       );
       return false;
     }
@@ -660,7 +660,7 @@ async function parseTests({ config, files }) {
       spec.tests.push(...tests);
 
       // Remove tests with no steps
-      spec.tests = spec.tests.filter((test) => test.steps.length > 0);
+      spec.tests = spec.tests.filter((test) => test.steps && test.steps.length > 0);
 
       // Push spec to specs, if it is valid
       const validation = validate({
