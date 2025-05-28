@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: package-lock.json
           registry-url: https://registry.npmjs.org/
 
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: package-lock.json
           registry-url: https://registry.npmjs.org/
 
@@ -56,3 +56,30 @@ jobs:
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+
+  update-downstream:
+    name: Update downstream packages
+    needs: publish-npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get package version
+        id: get_version
+        run: |
+          # Extract the version from package.json and set it as an environment variable
+          echo "VERSION=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Update `core`
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.DD_DEP_UPDATE_TOKEN }}" \
+                -H "Accept: application/vnd.github.everest-preview+json" \
+                "https://api.github.com/repos/doc-detective/core/dispatches" \
+                -d '{"event_type": "update-resolver-package-event", "client_payload": {"version": "${{ steps.get_version.outputs.version }}"} }'
+
+      - name: Update VSCode extension
+        run: |
+          curl -X POST -H "Authorization: token ${{ secrets.DD_DEP_UPDATE_TOKEN }}" \
+               -H "Accept: application/vnd.github.everest-preview+json" \
+               "https://api.github.com/repos/doc-detective/vscode/dispatches" \
+               -d '{"event_type": "update-resolver-package-event", "client_payload": {"version": "${{ steps.get_version.outputs.version }}"} }'
