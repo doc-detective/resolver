@@ -20,6 +20,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
     - name: Install specific version of doc-detective-common
       run: |
         npm install doc-detective-common@${{ github.event.client_payload.version || github.event.inputs.version }}
@@ -32,4 +37,9 @@ jobs:
     - name: Commit changes
       run: |
         git add package.json package-lock.json
-        git commit -m "chore: bump doc-detective-common version to ${{ github.event.client_payload.version || github.event.inputs.version }}"
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: bump doc-detective-common version to ${{ github.event.client_payload.version || github.event.inputs.version }}"
+        fi
+        git push
