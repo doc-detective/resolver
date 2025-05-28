@@ -37,9 +37,5 @@ jobs:
     - name: Commit changes
       run: |
         git add package.json package-lock.json
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "chore: bump doc-detective-common version to ${{ github.event.client_payload.version || github.event.inputs.version }}"
-        fi
+        git commit -m "chore: bump doc-detective-common version to ${{ github.event.client_payload.version || github.event.inputs.version }}"
         git push
