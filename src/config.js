@@ -90,18 +90,40 @@ let defaultFileTypes = {
       },
       {
         name: "goToUrl",
-        regex: ["\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+\\[[^\\]]+\\]\\(\\s*(https?:\\/\\/[^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)"],
+        regex: [
+          '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+\\[[^\\]]+\\]\\(\\s*(https?:\\/\\/[^\\s)]+)(?:\\s+"[^"]*")?\\s*\\)',
+        ],
         actions: ["goTo"],
       },
       {
         name: "screenshotImage",
-        regex: ["!\\[[^\\]]*\\]\\(\\s*([^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)\\s*\\{(?=[^}]*\\.screenshot)[^}]*\\}"],
+        regex: [
+          '!\\[[^\\]]*\\]\\(\\s*([^\\s)]+)(?:\\s+"[^"]*")?\\s*\\)\\s*\\{(?=[^}]*\\.screenshot)[^}]*\\}',
+        ],
         actions: ["screenshot"],
       },
       {
         name: "typeText",
-        regex: ["\\b(?:press|enter|type)\\b\\s+\"([^\"]+)\""],
+        regex: ['\\b(?:press|enter|type)\\b\\s+"([^"]+)"'],
         actions: ["type"],
+      },
+      {
+        name: "httpRequestFormat",
+        regex: [
+          "```\\n([A-Z]+)\\s+([^\\s]+)(?:\\s+HTTP\\/[\\d.]+)?\\r?\\n((?:[^\\r\\n]+(?:\\r?\\n|$))*)(?:\\r?\\n([\\s\\S]*))?\\n```",
+        ],
+        actions: [
+          {
+            httpRequest: {
+              method: "$1",
+              url: "$2",
+              request: {
+                headers: "$3",
+                body: "$4",
+              },
+            },
+          },
+        ],
       },
       // {
       //   name: "runBash",
