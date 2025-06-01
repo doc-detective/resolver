@@ -2,9 +2,6 @@ const os = require("os");
 const { validate } = require("doc-detective-common");
 const { log, loadEnvs, replaceEnvs } = require("./utils");
 const { loadDescription } = require("./openapi");
-const {
-  httpRequest,
-} = require("../../doc-detective-core/src/tests/httpRequest");
 
 exports.setConfig = setConfig;
 
