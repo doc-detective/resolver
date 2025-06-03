@@ -302,7 +302,7 @@ async function parseContent({ config, content, filePath, fileType }) {
         const allExist = matches.every((variable) => {
           const index = variable.substring(1);
           return (
-            values.hasOwnProperty(index) && typeof values[index] !== "undefined"
+            Object.hasOwn(values, index) && typeof values[index] !== "undefined"
           );
         });
         if (!allExist) {
@@ -332,7 +332,7 @@ async function parseContent({ config, content, filePath, fileType }) {
           const allExist = matches.every((variable) => {
             const index = variable.substring(1);
             return (
-              values.hasOwnProperty(index) &&
+              Object.hasOwn(values, index) &&
               typeof values[index] !== "undefined"
             );
           });
