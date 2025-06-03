@@ -295,10 +295,26 @@ async function parseContent({ config, content, filePath, fileType }) {
 
     if (typeof stringOrObject === "string") {
       // Replace $n with values[n]
-      stringOrObject = stringOrObject.replace(/\$[0-9]+/g, (variable) => {
-        const index = variable.substring(1);
-        return values[index];
-      });
+      // Find all $n variables in the string
+      const matches = stringOrObject.match(/\$[0-9]+/g);
+      if (matches) {
+        // Check if all variables exist in values
+        const allExist = matches.every((variable) => {
+          const index = variable.substring(1);
+          return (
+            values.hasOwnProperty(index) && typeof values[index] !== "undefined"
+          );
+        });
+        if (!allExist) {
+          return null;
+        } else {
+          // Perform substitution
+          stringOrObject = stringOrObject.replace(/\$[0-9]+/g, (variable) => {
+            const index = variable.substring(1);
+            return values[index];
+          });
+        }
+      }
     }
 
     Object.keys(stringOrObject).forEach((key) => {
@@ -310,13 +326,29 @@ async function parseContent({ config, content, filePath, fileType }) {
         );
       } else if (typeof stringOrObject[key] === "string") {
         // Replace $n with values[n]
-        stringOrObject[key] = stringOrObject[key].replace(
-          /\$[0-9]+/g,
-          (variable) => {
+        const matches = stringOrObject[key].match(/\$[0-9]+/g);
+        if (matches) {
+          // Check if all variables exist in values
+          const allExist = matches.every((variable) => {
             const index = variable.substring(1);
-            return values[index];
+            return (
+              values.hasOwnProperty(index) &&
+              typeof values[index] !== "undefined"
+            );
+          });
+          if (!allExist) {
+            delete stringOrObject[key];
+          } else {
+            // Perform substitution
+            stringOrObject[key] = stringOrObject[key].replace(
+              /\$[0-9]+/g,
+              (variable) => {
+                const index = variable.substring(1);
+                return values[index];
+              }
+            );
           }
-        );
+        }
       }
       return key;
     });
@@ -660,7 +692,9 @@ async function parseTests({ config, files }) {
       spec.tests.push(...tests);
 
       // Remove tests with no steps
-      spec.tests = spec.tests.filter((test) => test.steps && test.steps.length > 0);
+      spec.tests = spec.tests.filter(
+        (test) => test.steps && test.steps.length > 0
+      );
 
       // Push spec to specs, if it is valid
       const validation = validate({
