@@ -512,9 +512,10 @@ async function parseContent({ config, content, filePath, fileType }) {
                   step.httpRequest.request.headers
                     .split("\n")
                     .forEach((header) => {
-                      const [key, value] = header
-                        .split(":")
-                        .map((s) => s.trim());
+                      const colonIndex = header.indexOf(":");
+                      if (colonIndex === -1) return;
+                      const key = header.substring(0, colonIndex).trim();
+                      const value = header.substring(colonIndex + 1).trim();
                       if (key && value) {
                         headers[key] = value;
                       }
@@ -525,7 +526,8 @@ async function parseContent({ config, content, filePath, fileType }) {
               // Parse JSON-as-string body
               if (
                 typeof step.httpRequest.request.body === "string" &&
-                step.httpRequest.request.body.trim().startsWith("{")
+                (step.httpRequest.request.body.trim().startsWith("{") ||
+                  step.httpRequest.request.body.trim().startsWith("["))
               ) {
                 try {
                   step.httpRequest.request.body = JSON.parse(
