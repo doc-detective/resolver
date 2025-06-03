@@ -282,7 +282,8 @@ async function parseContent({ config, content, filePath, fileType }) {
     return test;
   }
 
-  function replaceNumericVariables(stringOrObject, values) {
+  function replaceNumericVariables(stringOrObjectSource, values) {
+    let stringOrObject = JSON.parse(JSON.stringify(stringOrObjectSource));
     if (
       typeof stringOrObject !== "string" &&
       typeof stringOrObject !== "object"
@@ -500,8 +501,44 @@ async function parseContent({ config, content, filePath, fileType }) {
               // TODO: Make key substitution recursive
               step = replaceNumericVariables(action, statement);
             }
+
+            // Normalize step field formats
+            if (step.httpRequest) {
+              // Parse headers from line-separated string values
+              // Example string: "Content-Type: application/json\nAuthorization: Bearer token"
+              if (typeof step.httpRequest.request.headers === "string") {
+                try {
+                  const headers = {};
+                  step.httpRequest.request.headers
+                    .split("\n")
+                    .forEach((header) => {
+                      const colonIndex = header.indexOf(":");
+                      if (colonIndex === -1) return;
+                      const key = header.substring(0, colonIndex).trim();
+                      const value = header.substring(colonIndex + 1).trim();
+                      if (key && value) {
+                        headers[key] = value;
+                      }
+                    });
+                  step.httpRequest.request.headers = headers;
+                } catch (error) {}
+              }
+              // Parse JSON-as-string body
+              if (
+                typeof step.httpRequest.request.body === "string" &&
+                (step.httpRequest.request.body.trim().startsWith("{") ||
+                  step.httpRequest.request.body.trim().startsWith("["))
+              ) {
+                try {
+                  step.httpRequest.request.body = JSON.parse(
+                    step.httpRequest.request.body
+                  );
+                } catch (error) {}
+              }
+            }
+
             // Make sure is valid v3 step schema
-            valid = validate({
+            const valid = validate({
               schemaKey: "step_v3",
               object: step,
               addDefaults: false,
