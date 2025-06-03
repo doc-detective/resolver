@@ -110,7 +110,7 @@ let defaultFileTypes = {
       {
         name: "httpRequestFormat",
         regex: [
-          "```(?:http)?\\n([A-Z]+)\\s+([^\\s]+)(?:\\s+HTTP\\/[\\d.]+)?\\s((?:[^\\s]+\\s?)*)(?:\\s([\\s\\S]*)\\s)?```",
+          "```(?:http)?\\r?\\n([A-Z]+)\\s+([^\\s]+)(?:\\s+HTTP\\/[\\d.]+)?\\r?\\n((?:[^\\s]+:\\s+[^\\s]+\\r?\\n)*)?(?:\\s+([\\s\\S]*)\\s+)?```",
         ],
         actions: [
           {
