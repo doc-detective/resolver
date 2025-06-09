@@ -172,7 +172,7 @@ async function setConfig({ config }) {
       "error",
       `Invalid config object: ${validityCheck.errors}. Exiting.`
     );
-    process.exit(1);
+    throw new Error(`Invalid config object: ${validityCheck.errors}. Exiting.`);
   }
   config = validityCheck.object;
 
@@ -186,7 +186,9 @@ async function setConfig({ config }) {
       "error",
       `Invalid config. "${fileType}" isn't a valid fileType value.`
     );
-    process.exit(1);
+    throw new Error(
+      `Invalid config. "${fileType}" isn't a valid fileType value.`
+    );
   });
 
   // TODO: Combine extended fileTypes with overrides
@@ -234,6 +236,67 @@ async function setConfig({ config }) {
         if (typeof markup.regex === "string") markup.regex = [markup.regex];
         return markup;
       });
+    }
+    if (fileType.extends) {
+      // If fileType extends another, merge the properties
+      const extendedFileType = defaultFileTypes[fileType.extends];
+      if (extendedFileType) {
+        if (!fileType.name) {
+          fileType.name = extendedFileType.name;
+        }
+
+        // Merge extensions
+        if (extendedFileType?.extensions) {
+            fileType.extensions = [
+            ...new Set([
+              ...(extendedFileType.extensions || []),
+              ...(fileType.extensions || []),
+            ]),
+            ];
+        }
+
+        // Merge property values for inlineStatements children
+        if (extendedFileType?.inlineStatements) {
+          if (fileType.inlineStatements === undefined) {
+            fileType.inlineStatements = {};
+          }
+            // Merge each inlineStatements property using Set to ensure uniqueness
+            const keys = [
+            "testStart",
+            "testEnd",
+            "ignoreStart",
+            "ignoreEnd",
+            "step",
+            ];
+            for (const key of keys) {
+            if (
+              extendedFileType?.inlineStatements?.[key] ||
+              fileType?.inlineStatements?.[key]
+            ) {
+              fileType.inlineStatements[key] = [
+              ...new Set([
+                ...(extendedFileType?.inlineStatements?.[key] || []),
+                ...(fileType?.inlineStatements?.[key] || []),
+              ]),
+              ];
+            }
+            }
+        }
+
+        // Merge property values for markup array, overwriting when `name` matches
+        if (extendedFileType?.markup) {
+          fileType.markup = fileType.markup || [];
+          extendedFileType.markup.forEach((extendedMarkup) => {
+            const existingMarkupIndex = fileType.markup.findIndex(
+              (markup) => markup.name === extendedMarkup.name
+            );
+            if (existingMarkupIndex === -1) {
+              // Add to markup array
+              fileType.markup.push(extendedMarkup);
+            }
+          });
+        }
+      }
     }
 
     return fileType;
