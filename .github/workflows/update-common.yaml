@@ -58,16 +58,35 @@ jobs:
           echo "has_changes=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Bump patch version
+    - name: Bump or sync version
       id: patch
       if: steps.commit.outputs.has_changes == 'true'
       run: |
         git checkout -- .
         git clean -fd
-        npm version patch
+        # Get current project version
+        PROJ_VERSION=$(node -p "require('./package.json').version")
+        # Get doc-detective-common version (strip ^ or ~)
+        COMMON_VERSION=$(node -p "(require('./package.json').dependencies['doc-detective-common'] || require('./package.json').devDependencies['doc-detective-common'] || '').replace(/^[^\\d]*/, '')")
+        # Parse versions
+        PROJ_MAJOR=$(echo $PROJ_VERSION | cut -d. -f1)
+        PROJ_MINOR=$(echo $PROJ_VERSION | cut -d. -f2)
+        COMMON_MAJOR=$(echo $COMMON_VERSION | cut -d. -f1)
+        COMMON_MINOR=$(echo $COMMON_VERSION | cut -d. -f2)
+        if [ "$PROJ_MAJOR" != "$COMMON_MAJOR" ] || [ "$PROJ_MINOR" != "$COMMON_MINOR" ]; then
+          # Major or minor mismatch: set version to match doc-detective-common major.minor.0
+          NEW_VERSION="$COMMON_MAJOR.$COMMON_MINOR.0"
+          npm version --no-git-tag-version "$NEW_VERSION"
+        else
+          # Only patch changed: bump patch
+          npm version patch --no-git-tag-version
+        fi
+        git add package.json package-lock.json
+        git commit -m "bump version to match doc-detective-common"
         git push
+        git tag "v$(node -p \"require('./package.json').version\")"
         git push --tags
-        echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        echo "version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
 
     - name: Create release
       if: steps.commit.outputs.has_changes == 'true'
