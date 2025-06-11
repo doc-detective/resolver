@@ -5,6 +5,35 @@ const { loadDescription } = require("./openapi");
 
 exports.setConfig = setConfig;
 
+/**
+ * Deep merge two objects, with override properties taking precedence
+ * @param {Object} target - The target object to merge into
+ * @param {Object} override - The override object containing properties to merge
+ * @returns {Object} A new object with merged properties
+ */
+function deepMerge(target, override) {
+  const result = { ...target };
+  
+  for (const key in override) {
+    if (override.hasOwnProperty(key)) {
+      if (override[key] != null && typeof override[key] === 'object' && !Array.isArray(override[key])) {
+        // If both target and override have objects at this key, deep merge them
+        if (result[key] != null && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+          result[key] = deepMerge(result[key], override[key]);
+        } else {
+          // If target doesn't have an object at this key, just assign the override
+          result[key] = deepMerge({}, override[key]);
+        }
+      } else {
+        // For primitive values, arrays, or null, just override
+        result[key] = override[key];
+      }
+    }
+  }
+  
+  return result;
+}
+
 // Map of Node-detected platforms to common-term equivalents
 const platformMap = {
   darwin: "mac",
@@ -168,8 +197,8 @@ async function setConfig({ config }) {
     try {
       const docDetectiveEnv = JSON.parse(process.env.DOC_DETECTIVE);
       if (docDetectiveEnv.config && typeof docDetectiveEnv.config === 'object') {
-        // Apply only the config properties that are present in the environment override
-        config = { ...config, ...docDetectiveEnv.config };
+        // Apply config overrides using deep merge to preserve nested properties
+        config = deepMerge(config, docDetectiveEnv.config);
       }
     } catch (error) {
       log(

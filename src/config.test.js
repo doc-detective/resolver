@@ -115,4 +115,126 @@ describe("setConfig", function () {
     expect(calledConfig.recursive).to.equal(false);  // preserved
     expect(calledConfig.input).to.deep.equal(["test.md"]); // preserved
   });
+
+  it("should deep merge nested objects without losing properties", async function () {
+    const envConfig = { 
+      integrations: { 
+        openApi: [{ name: "newApi", descriptionPath: "new.yaml" }] 
+      } 
+    };
+    process.env.DOC_DETECTIVE = JSON.stringify({ config: envConfig });
+    
+    const inputConfig = { 
+      input: ["test.md"], 
+      logLevel: "info", 
+      integrations: { 
+        openApi: [{ name: "oldApi", descriptionPath: "old.yaml" }],
+        database: { connectionString: "should-be-preserved" }
+      },
+      fileTypes: [] 
+    };
+    
+    const expectedMergedConfig = { 
+      input: ["test.md"], 
+      logLevel: "info",
+      integrations: { 
+        openApi: [{ name: "newApi", descriptionPath: "new.yaml" }], // overridden
+        database: { connectionString: "should-be-preserved" } // preserved
+      },
+      fileTypes: [] 
+    };
+    validStub.returns({ valid: true, object: expectedMergedConfig });
+    
+    await setConfig({ config: inputConfig });
+    
+    const calledConfig = validStub.getCall(0).args[0].object;
+    expect(calledConfig.integrations.openApi).to.deep.equal([{ name: "newApi", descriptionPath: "new.yaml" }]);
+    expect(calledConfig.integrations.database).to.deep.equal({ connectionString: "should-be-preserved" });
+    expect(calledConfig.logLevel).to.equal("info"); // preserved
+  });
+
+  it("should handle deep merge when override creates new nested objects", async function () {
+    const envConfig = { 
+      newSection: {
+        newProperty: "value",
+        nested: { deep: "property" }
+      }
+    };
+    process.env.DOC_DETECTIVE = JSON.stringify({ config: envConfig });
+    
+    const inputConfig = { 
+      input: ["test.md"], 
+      logLevel: "info",
+      fileTypes: [] 
+    };
+    
+    const expectedMergedConfig = { 
+      input: ["test.md"], 
+      logLevel: "info",
+      newSection: {
+        newProperty: "value",
+        nested: { deep: "property" }
+      },
+      fileTypes: [] 
+    };
+    validStub.returns({ valid: true, object: expectedMergedConfig });
+    
+    await setConfig({ config: inputConfig });
+    
+    const calledConfig = validStub.getCall(0).args[0].object;
+    expect(calledConfig.newSection).to.deep.equal({
+      newProperty: "value",
+      nested: { deep: "property" }
+    });
+    expect(calledConfig.logLevel).to.equal("info"); // preserved
+  });
+
+  it("should handle deep merge with multiple nested levels", async function () {
+    const envConfig = { 
+      level1: {
+        level2: {
+          level3: {
+            overridden: "new_value"
+          }
+        }
+      }
+    };
+    process.env.DOC_DETECTIVE = JSON.stringify({ config: envConfig });
+    
+    const inputConfig = { 
+      input: ["test.md"], 
+      level1: {
+        level2: {
+          level3: {
+            overridden: "old_value",
+            preserved: "should_stay"
+          },
+          otherProp: "also_preserved"
+        }
+      },
+      fileTypes: [] 
+    };
+    
+    const expectedMergedConfig = { 
+      input: ["test.md"], 
+      level1: {
+        level2: {
+          level3: {
+            overridden: "new_value",
+            preserved: "should_stay"
+          },
+          otherProp: "also_preserved"
+        }
+      },
+      fileTypes: [] 
+    };
+    validStub.returns({ valid: true, object: expectedMergedConfig });
+    
+    await setConfig({ config: inputConfig });
+    
+    const calledConfig = validStub.getCall(0).args[0].object;
+    expect(calledConfig.level1.level2.level3.overridden).to.equal("new_value");
+    expect(calledConfig.level1.level2.level3.preserved).to.equal("should_stay");
+    expect(calledConfig.level1.level2.otherProp).to.equal("also_preserved");
+  });
 });
