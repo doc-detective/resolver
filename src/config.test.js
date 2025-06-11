@@ -10,49 +10,34 @@ describe("Config tests", async function () {
   // Test that config is resolved correctly
   it("Config is resolved correctly", async function () {
     const configSets = [
-      //   {
-      //     config: { input: "input.spec.json" },
-      //     expected: { input: ["input.spec.json"] },
-      //   },
-      //   {
-      //     config: { input: ["input.spec.json", "input2.spec.json"] },
-      //     expected: {
-      //       input: [
-      //         "input.spec.json",
-      //         "input2.spec.json",
-      //       ],
-      //     },
-      //   },
-      //   {
-      //     config: { input: ["input.spec.json", "input2.spec.json"], output: "." },
-      //     expected: {
-      //       input: [
-      //         "input.spec.json",
-      //         "input2.spec.json",
-      //       ],
-      //       output: ".",
-      //     },
-      //   },
+        // {
+        //   config: { input: "input.spec.json" },
+        //   expected: { input: ["input.spec.json"] },
+        // },
+        // {
+        //   config: { input: ["input.spec.json", "input2.spec.json"] },
+        //   expected: {
+        //     input: [
+        //       "input.spec.json",
+        //       "input2.spec.json",
+        //     ],
+        //   },
+        // },
+        // {
+        //   config: { input: ["input.spec.json", "input2.spec.json"], output: "." },
+        //   expected: {
+        //     input: [
+        //       "input.spec.json",
+        //       "input2.spec.json",
+        //     ],
+        //     output: ".",
+        //   },
+        // },
       {
         config: {
           fileTypes: [
             {
               extends: "markdown",
-              markup: [
-                {
-                  name: "runBash",
-                  regex: ["```(?:bash)\\b\\s*\\n(?<code>.*?)(?=\\n```)"],
-                  batchMatches: true,
-                  actions: [
-                    {
-                      runCode: {
-                        language: "bash",
-                        code: "$1",
-                      },
-                    },
-                  ],
-                },
-              ],
             },
           ],
         },

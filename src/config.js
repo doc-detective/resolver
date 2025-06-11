@@ -125,19 +125,21 @@ let defaultFileTypes = {
           },
         ],
       },
-      // {
-      //   name: "runBash",
-      //   regex: ["```(?:bash)\\b\\s*\\n(?<code>.*?)(?=\\n```)"],
-      //   batchMatches: true,
-      //   actions: [
-      //     {
-      //       runCode: {
-      //         language: "bash",
-      //         code: "$1",
-      //       },
-      //     },
-      //   ],
-      // },
+      {
+        unsafe: true,
+        // This is unsafe because it runs arbitrary code, so it should be used with caution.
+        // It is recommended to use this only in trusted environments or with trusted inputs.
+        name: "runCode",
+        regex: ["```(bash|python|py|javascript|js)(?!.*testIgnore).*?\\r?\\n([\\s\\S]*?)\\r?\\n```"],
+        actions: [
+          {
+            runCode: {
+              language: "$1",
+              code: "$2",
+            },
+          },
+        ],
+      },
     ],
   },
 };
@@ -233,7 +235,7 @@ async function setConfig({ config }) {
     }
     if (fileType.markup) {
       fileType.markup = fileType.markup.map((markup) => {
-        if (typeof markup.regex === "string") markup.regex = [markup.regex];
+        if (typeof markup?.regex === "string") markup.regex = [markup.regex];
         return markup;
       });
     }
@@ -247,12 +249,12 @@ async function setConfig({ config }) {
 
         // Merge extensions
         if (extendedFileType?.extensions) {
-            fileType.extensions = [
+          fileType.extensions = [
             ...new Set([
               ...(extendedFileType.extensions || []),
               ...(fileType.extensions || []),
             ]),
-            ];
+          ];
         }
 
         // Merge property values for inlineStatements children
@@ -260,27 +262,27 @@ async function setConfig({ config }) {
           if (fileType.inlineStatements === undefined) {
             fileType.inlineStatements = {};
           }
-            // Merge each inlineStatements property using Set to ensure uniqueness
-            const keys = [
+          // Merge each inlineStatements property using Set to ensure uniqueness
+          const keys = [
             "testStart",
             "testEnd",
             "ignoreStart",
             "ignoreEnd",
             "step",
-            ];
-            for (const key of keys) {
+          ];
+          for (const key of keys) {
             if (
               extendedFileType?.inlineStatements?.[key] ||
               fileType?.inlineStatements?.[key]
             ) {
               fileType.inlineStatements[key] = [
-              ...new Set([
-                ...(extendedFileType?.inlineStatements?.[key] || []),
-                ...(fileType?.inlineStatements?.[key] || []),
-              ]),
+                ...new Set([
+                  ...(extendedFileType?.inlineStatements?.[key] || []),
+                  ...(fileType?.inlineStatements?.[key] || []),
+                ]),
               ];
             }
-            }
+          }
         }
 
         // Merge property values for markup array, overwriting when `name` matches

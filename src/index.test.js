@@ -191,6 +191,28 @@ const markdownInput = `
 ![Search results.](reference.png)
 `;
 
+const codeInMarkdown = `
+\`\`\`bash
+# This is a bash code block
+echo "Hello, World!"
+\`\`\`
+
+\`\`\`javascript
+// This is a JavaScript code block
+console.log("Hello, World!");
+\`\`\`
+
+\`\`\`python
+# This is a Python code block
+print("Hello, World!")
+\`\`\`
+
+\`\`\`bash testIgnore
+# This is a bash code block that should be ignored
+echo "This should not be detected as a test step"
+\`\`\`
+`;
+
 describe("Input/output detect comparisons", async function () {
   it("should correctly parse YAML input", async function () {
     // Create temp yaml file
@@ -249,5 +271,20 @@ describe("Input/output detect comparisons", async function () {
     expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(11);
+  });
+
+  it("should correctly parse code in markdown input", async function () {
+    // Create temp markdown file
+    const tempMarkdownFile = "temp_code.md";
+    fs.writeFileSync(tempMarkdownFile, codeInMarkdown.trim());
+    const config = {
+      input: tempMarkdownFile,
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempMarkdownFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
   });
 });

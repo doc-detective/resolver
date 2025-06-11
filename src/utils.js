@@ -394,7 +394,7 @@ async function parseContent({ config, content, filePath, fileType }) {
             sortIndex: Math.min(...matches.map((match) => match.index)),
           };
           statements.push(combinedMatch);
-        } else {
+        } else if (matches.length > 0) {
           matches.forEach((match) => {
             // Add 'type' property to each match
             match.type = "detectedStep";
