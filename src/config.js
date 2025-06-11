@@ -163,6 +163,23 @@ async function setConfig({ config }) {
   // Load environment variables for `config`
   config = replaceEnvs(config);
 
+  // Apply config overrides from DOC_DETECTIVE environment variable
+  if (process.env.DOC_DETECTIVE) {
+    try {
+      const docDetectiveEnv = JSON.parse(process.env.DOC_DETECTIVE);
+      if (docDetectiveEnv.config && typeof docDetectiveEnv.config === 'object') {
+        // Apply only the config properties that are present in the environment override
+        config = { ...config, ...docDetectiveEnv.config };
+      }
+    } catch (error) {
+      log(
+        config,
+        "warn",
+        `Invalid JSON in DOC_DETECTIVE environment variable: ${error.message}. Ignoring config overrides.`
+      );
+    }
+  }
+
   // Validate inbound `config`.
   const validityCheck = validate({ schemaKey: "config_v3", object: config });
   if (!validityCheck.valid) {
