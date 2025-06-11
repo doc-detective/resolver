@@ -67,7 +67,6 @@ step: ["<!-- step ([\\s\\S]*?) -->"]
 
 ### Testing Conventions
 - Use Mocha for unit tests
-- Sinon for mocking and stubbing
 - Chai for assertions
 - Test files follow `*.test.js` naming pattern
 
@@ -124,6 +123,7 @@ const resolvedTests = await resolveTests({ config, detectedTests });
 - Add JSDoc comments for complex functions
 
 ### Testing Guidelines
+- When possible, directly import and run functions rather than use extensive mocking and stubbing
 - Mock external dependencies (file system, HTTP requests)
 - Test both successful and error scenarios
 - Validate configuration handling thoroughly
