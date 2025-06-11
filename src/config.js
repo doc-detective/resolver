@@ -5,6 +5,35 @@ const { loadDescription } = require("./openapi");
 
 exports.setConfig = setConfig;
 
+/**
+ * Deep merge two objects, with override properties taking precedence
+ * @param {Object} target - The target object to merge into
+ * @param {Object} override - The override object containing properties to merge
+ * @returns {Object} A new object with merged properties
+ */
+function deepMerge(target, override) {
+  const result = { ...target };
+  
+  for (const key in override) {
+    if (override.hasOwnProperty(key)) {
+      if (override[key] != null && typeof override[key] === 'object' && !Array.isArray(override[key])) {
+        // If both target and override have objects at this key, deep merge them
+        if (result[key] != null && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+          result[key] = deepMerge(result[key], override[key]);
+        } else {
+          // If target doesn't have an object at this key, just assign the override
+          result[key] = deepMerge({}, override[key]);
+        }
+      } else {
+        // For primitive values, arrays, or null, just override
+        result[key] = override[key];
+      }
+    }
+  }
+  
+  return result;
+}
+
 // Map of Node-detected platforms to common-term equivalents
 const platformMap = {
   darwin: "mac",
@@ -90,18 +119,40 @@ let defaultFileTypes = {
       },
       {
         name: "goToUrl",
-        regex: ["\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+\\[[^\\]]+\\]\\(\\s*(https?:\\/\\/[^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)"],
+        regex: [
+          '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+\\[[^\\]]+\\]\\(\\s*(https?:\\/\\/[^\\s)]+)(?:\\s+"[^"]*")?\\s*\\)',
+        ],
         actions: ["goTo"],
       },
       {
         name: "screenshotImage",
-        regex: ["!\\[[^\\]]*\\]\\(\\s*([^\\s)]+)(?:\\s+\"[^\"]*\")?\\s*\\)\\s*\\{(?=[^}]*\\.screenshot)[^}]*\\}"],
+        regex: [
+          '!\\[[^\\]]*\\]\\(\\s*([^\\s)]+)(?:\\s+"[^"]*")?\\s*\\)\\s*\\{(?=[^}]*\\.screenshot)[^}]*\\}',
+        ],
         actions: ["screenshot"],
       },
       {
         name: "typeText",
-        regex: ["\\b(?:press|enter|type)\\b\\s+\"([^\"]+)\""],
+        regex: ['\\b(?:press|enter|type)\\b\\s+"([^"]+)"'],
         actions: ["type"],
+      },
+      {
+        name: "httpRequestFormat",
+        regex: [
+          "```(?:http)?\\r?\\n([A-Z]+)\\s+([^\\s]+)(?:\\s+HTTP\\/[\\d.]+)?\\r?\\n((?:[^\\s]+:\\s+[^\\s]+\\r?\\n)*)?(?:\\s+([\\s\\S]*?)\\r?\\n+)?```",
+        ],
+        actions: [
+          {
+            httpRequest: {
+              method: "$1",
+              url: "$2",
+              request: {
+                headers: "$3",
+                body: "$4",
+              },
+            },
+          },
+        ],
       },
       // {
       //   name: "runBash",
@@ -140,6 +191,23 @@ async function setConfig({ config }) {
 
   // Load environment variables for `config`
   config = replaceEnvs(config);
+
+  // Apply config overrides from DOC_DETECTIVE environment variable
+  if (process.env.DOC_DETECTIVE) {
+    try {
+      const docDetectiveEnv = JSON.parse(process.env.DOC_DETECTIVE);
+      if (docDetectiveEnv.config && typeof docDetectiveEnv.config === 'object') {
+        // Apply config overrides using deep merge to preserve nested properties
+        config = deepMerge(config, docDetectiveEnv.config);
+      }
+    } catch (error) {
+      log(
+        config,
+        "warn",
+        `Invalid JSON in DOC_DETECTIVE environment variable: ${error.message}. Ignoring config overrides.`
+      );
+    }
+  }
 
   // Validate inbound `config`.
   const validityCheck = validate({ schemaKey: "config_v3", object: config });

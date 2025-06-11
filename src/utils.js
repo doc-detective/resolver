@@ -289,7 +289,8 @@ async function parseContent({ config, content, filePath, fileType }) {
     return test;
   }
 
-  function replaceNumericVariables(stringOrObject, values) {
+  function replaceNumericVariables(stringOrObjectSource, values) {
+    let stringOrObject = JSON.parse(JSON.stringify(stringOrObjectSource));
     if (
       typeof stringOrObject !== "string" &&
       typeof stringOrObject !== "object"
@@ -302,10 +303,26 @@ async function parseContent({ config, content, filePath, fileType }) {
 
     if (typeof stringOrObject === "string") {
       // Replace $n with values[n]
-      stringOrObject = stringOrObject.replace(/\$[0-9]+/g, (variable) => {
-        const index = variable.substring(1);
-        return values[index];
-      });
+      // Find all $n variables in the string
+      const matches = stringOrObject.match(/\$[0-9]+/g);
+      if (matches) {
+        // Check if all variables exist in values
+        const allExist = matches.every((variable) => {
+          const index = variable.substring(1);
+          return (
+            Object.hasOwn(values, index) && typeof values[index] !== "undefined"
+          );
+        });
+        if (!allExist) {
+          return null;
+        } else {
+          // Perform substitution
+          stringOrObject = stringOrObject.replace(/\$[0-9]+/g, (variable) => {
+            const index = variable.substring(1);
+            return values[index];
+          });
+        }
+      }
     }
 
     Object.keys(stringOrObject).forEach((key) => {
@@ -317,13 +334,29 @@ async function parseContent({ config, content, filePath, fileType }) {
         );
       } else if (typeof stringOrObject[key] === "string") {
         // Replace $n with values[n]
-        stringOrObject[key] = stringOrObject[key].replace(
-          /\$[0-9]+/g,
-          (variable) => {
+        const matches = stringOrObject[key].match(/\$[0-9]+/g);
+        if (matches) {
+          // Check if all variables exist in values
+          const allExist = matches.every((variable) => {
             const index = variable.substring(1);
-            return values[index];
+            return (
+              Object.hasOwn(values, index) &&
+              typeof values[index] !== "undefined"
+            );
+          });
+          if (!allExist) {
+            delete stringOrObject[key];
+          } else {
+            // Perform substitution
+            stringOrObject[key] = stringOrObject[key].replace(
+              /\$[0-9]+/g,
+              (variable) => {
+                const index = variable.substring(1);
+                return values[index];
+              }
+            );
           }
-        );
+        }
       }
       return key;
     });
@@ -475,8 +508,44 @@ async function parseContent({ config, content, filePath, fileType }) {
               // TODO: Make key substitution recursive
               step = replaceNumericVariables(action, statement);
             }
+
+            // Normalize step field formats
+            if (step.httpRequest) {
+              // Parse headers from line-separated string values
+              // Example string: "Content-Type: application/json\nAuthorization: Bearer token"
+              if (typeof step.httpRequest.request.headers === "string") {
+                try {
+                  const headers = {};
+                  step.httpRequest.request.headers
+                    .split("\n")
+                    .forEach((header) => {
+                      const colonIndex = header.indexOf(":");
+                      if (colonIndex === -1) return;
+                      const key = header.substring(0, colonIndex).trim();
+                      const value = header.substring(colonIndex + 1).trim();
+                      if (key && value) {
+                        headers[key] = value;
+                      }
+                    });
+                  step.httpRequest.request.headers = headers;
+                } catch (error) {}
+              }
+              // Parse JSON-as-string body
+              if (
+                typeof step.httpRequest.request.body === "string" &&
+                (step.httpRequest.request.body.trim().startsWith("{") ||
+                  step.httpRequest.request.body.trim().startsWith("["))
+              ) {
+                try {
+                  step.httpRequest.request.body = JSON.parse(
+                    step.httpRequest.request.body
+                  );
+                } catch (error) {}
+              }
+            }
+
             // Make sure is valid v3 step schema
-            valid = validate({
+            const valid = validate({
               schemaKey: "step_v3",
               object: step,
               addDefaults: false,
@@ -531,7 +600,7 @@ async function parseContent({ config, content, filePath, fileType }) {
       log(
         config,
         "warning",
-        `Couldn't convert some steps in ${filePath} to a valid test.Skipping. Errors: ${validation.errors}`
+        `Couldn't convert some steps in ${filePath} to a valid test. Skipping. Errors: ${validation.errors}`
       );
       return false;
     }
@@ -693,7 +762,9 @@ async function parseTests({ config, files }) {
       spec.tests.push(...tests);
 
       // Remove tests with no steps
-      spec.tests = spec.tests.filter((test) => test.steps.length > 0);
+      spec.tests = spec.tests.filter(
+        (test) => test.steps && test.steps.length > 0
+      );
 
       // Push spec to specs, if it is valid
       const validation = validate({
