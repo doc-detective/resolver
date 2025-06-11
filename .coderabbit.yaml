@@ -1,5 +1,5 @@
 language: en-US
-tone_instructions: ''
+tone_instructions: 'When reviewing AI-generated code from Copilot Coding Agent, focus on code quality, security, and adherence to project standards. Provide constructive feedback on logic, performance, and maintainability.'
 early_access: false
 enable_free_tier: true
 reviews:
@@ -23,8 +23,9 @@ reviews:
     auto_incremental_review: true
     ignore_title_keywords: []
     labels: []
-    drafts: false
+    drafts: true
     base_branches: ["main","rc"]
+    include_authors: ["copilot", "github-actions[bot]", "copilot[bot]"]
   tools:
     shellcheck:
       enabled: true
