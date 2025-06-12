@@ -126,13 +126,13 @@ let defaultFileTypes = {
         ],
       },
       {
-        unsafe: true,
-        // This is unsafe because it runs arbitrary code, so it should be used with caution.
-        // It is recommended to use this only in trusted environments or with trusted inputs.
         name: "runCode",
         regex: ["```(bash|python|py|javascript|js)(?!.*testIgnore).*?\\r?\\n([\\s\\S]*?)\\r?\\n```"],
         actions: [
           {
+            unsafe: true,
+            // This is unsafe because it runs arbitrary code, so it should be used with caution.
+            // It is recommended to use this only in trusted environments or with trusted inputs.
             runCode: {
               language: "$1",
               code: "$2",
