@@ -584,9 +584,6 @@ async function parseContent({ config, content, filePath, fileType }) {
   });
 
   tests.forEach((test) => {
-    // If any steps are unsafe, mark the test as unsafe
-    test.unsafe = isUnsafe({ stepArray: test.steps });
-
     // Validate test object
     const validation = validate({
       schemaKey: "test_v3",
@@ -602,6 +599,9 @@ async function parseContent({ config, content, filePath, fileType }) {
       return false;
     }
     test = validation.object;
+    // If any steps are unsafe, mark the test as unsafe
+    test.unsafe = isUnsafe({ stepArray: test.steps });
+    
   });
 
   return tests;
