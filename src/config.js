@@ -217,19 +217,13 @@ async function setConfig({ config }) {
   config.fileTypes = config.fileTypes.map((fileType) => {
     if (fileType.inlineStatements) {
       if (typeof fileType.inlineStatements.testStart === "string")
-        fileType.inlineStatements.testStart = [
-          fileType.inlineStatements.testStart,
-        ];
+        fileType.inlineStatements.testStart = [fileType.inlineStatements.testStart];
       if (typeof fileType.inlineStatements.testEnd === "string")
         fileType.inlineStatements.testEnd = [fileType.inlineStatements.testEnd];
       if (typeof fileType.inlineStatements.ignoreStart === "string")
-        fileType.inlineStatements.ignoreStart = [
-          fileType.inlineStatements.ignoreStart,
-        ];
+        fileType.inlineStatements.ignoreStart = [fileType.inlineStatements.ignoreStart];
       if (typeof fileType.inlineStatements.ignoreEnd === "string")
-        fileType.inlineStatements.ignoreEnd = [
-          fileType.inlineStatements.ignoreEnd,
-        ];
+        fileType.inlineStatements.ignoreEnd = [fileType.inlineStatements.ignoreEnd];
       if (typeof fileType.inlineStatements.step === "string")
         fileType.inlineStatements.step = [fileType.inlineStatements.step];
     }
@@ -241,7 +235,18 @@ async function setConfig({ config }) {
     }
     if (fileType.extends) {
       // If fileType extends another, merge the properties
-      const extendedFileType = defaultFileTypes[fileType.extends];
+      const extendedFileTypeRaw = defaultFileTypes[fileType.extends];
+      if (!extendedFileTypeRaw) {
+        log(
+          config,
+          "error",
+          'Invalid config. fileType.extends references unknown fileType definition: "' + fileType.extends + '".'
+        );
+        throw new Error(
+          'Invalid config. fileType.extends references unknown fileType definition: "' + fileType.extends + '".'
+        );
+      }
+      const extendedFileType = JSON.parse(JSON.stringify(extendedFileTypeRaw));
       if (extendedFileType) {
         if (!fileType.name) {
           fileType.name = extendedFileType.name;
