@@ -165,7 +165,7 @@ let defaultFileTypes = {
       {
         name: "runCode",
         regex: [
-          "```(bash|python|py|javascript|js)(?![^\\r\\n]*testIgnore)\\s[^\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n```",
+          "```(bash|python|py|javascript|js)(?![^\\r\\n]*testIgnore)[^\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n```",
         ],
         actions: [
           {
