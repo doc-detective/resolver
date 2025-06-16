@@ -394,7 +394,7 @@ async function parseContent({ config, content, filePath, fileType }) {
             sortIndex: Math.min(...matches.map((match) => match.index)),
           };
           statements.push(combinedMatch);
-        } else {
+        } else if (matches.length > 0) {
           matches.forEach((match) => {
             // Add 'type' property to each match
             match.type = "detectedStep";
@@ -584,6 +584,7 @@ async function parseContent({ config, content, filePath, fileType }) {
   });
 
   tests.forEach((test) => {
+    // Validate test object
     const validation = validate({
       schemaKey: "test_v3",
       object: test,
@@ -598,9 +599,16 @@ async function parseContent({ config, content, filePath, fileType }) {
       return false;
     }
     test = validation.object;
+    // If any steps are unsafe, mark the test as unsafe
+    test.unsafe = isUnsafe({ stepArray: test.steps });
+    
   });
 
   return tests;
+}
+
+function isUnsafe({ stepArray = [] }) {
+  return stepArray.some((step) => step.unsafe);
 }
 
 // Parse files for tests
@@ -633,6 +641,8 @@ async function parseTests({ config, files }) {
           const cleanup = await readFile({ fileURLOrPath: test.after });
           test.steps = test.steps.concat(cleanup.tests[0].steps);
         }
+        // If any steps are unsafe, mark the test as unsafe
+        test.unsafe = isUnsafe({ stepArray: test.steps });
       }
       // Validate each step
       for (const test of content.tests) {

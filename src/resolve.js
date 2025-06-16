@@ -214,6 +214,7 @@ async function resolveContext({ config, test, context }) {
   log(config, "debug", `CONTEXT: ${contextId}`);
   const resolvedContext = {
     ...context,
+    unsafe: test.unsafe || false,
     openApi: test.openApi || [],
     steps: [...test.steps],
     contextId: contextId,

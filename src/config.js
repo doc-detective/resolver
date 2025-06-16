@@ -13,12 +13,20 @@ exports.setConfig = setConfig;
  */
 function deepMerge(target, override) {
   const result = { ...target };
-  
+
   for (const key in override) {
     if (override.hasOwnProperty(key)) {
-      if (override[key] != null && typeof override[key] === 'object' && !Array.isArray(override[key])) {
+      if (
+        override[key] != null &&
+        typeof override[key] === "object" &&
+        !Array.isArray(override[key])
+      ) {
         // If both target and override have objects at this key, deep merge them
-        if (result[key] != null && typeof result[key] === 'object' && !Array.isArray(result[key])) {
+        if (
+          result[key] != null &&
+          typeof result[key] === "object" &&
+          !Array.isArray(result[key])
+        ) {
           result[key] = deepMerge(result[key], override[key]);
         } else {
           // If target doesn't have an object at this key, just assign the override
@@ -30,7 +38,7 @@ function deepMerge(target, override) {
       }
     }
   }
-  
+
   return result;
 }
 
@@ -154,19 +162,23 @@ let defaultFileTypes = {
           },
         ],
       },
-      // {
-      //   name: "runBash",
-      //   regex: ["```(?:bash)\\b\\s*\\n(?<code>.*?)(?=\\n```)"],
-      //   batchMatches: true,
-      //   actions: [
-      //     {
-      //       runCode: {
-      //         language: "bash",
-      //         code: "$1",
-      //       },
-      //     },
-      //   ],
-      // },
+      {
+        name: "runCode",
+        regex: [
+          "```(bash|python|py|javascript|js)(?![^\\r\\n]*testIgnore)[^\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n```",
+        ],
+        actions: [
+          {
+            unsafe: true,
+            // This is unsafe because it runs arbitrary code, so it should be used with caution.
+            // It is recommended to use this only in trusted environments or with trusted inputs.
+            runCode: {
+              language: "$1",
+              code: "$2",
+            },
+          },
+        ],
+      },
     ],
   },
 };
@@ -196,7 +208,10 @@ async function setConfig({ config }) {
   if (process.env.DOC_DETECTIVE) {
     try {
       const docDetectiveEnv = JSON.parse(process.env.DOC_DETECTIVE);
-      if (docDetectiveEnv.config && typeof docDetectiveEnv.config === 'object') {
+      if (
+        docDetectiveEnv.config &&
+        typeof docDetectiveEnv.config === "object"
+      ) {
         // Apply config overrides using deep merge to preserve nested properties
         config = deepMerge(config, docDetectiveEnv.config);
       }
@@ -218,7 +233,7 @@ async function setConfig({ config }) {
       "error",
       `Invalid config object: ${validityCheck.errors}. Exiting.`
     );
-    process.exit(1);
+    throw new Error(`Invalid config object: ${validityCheck.errors}. Exiting.`);
   }
   config = validityCheck.object;
 
@@ -232,7 +247,9 @@ async function setConfig({ config }) {
       "error",
       `Invalid config. "${fileType}" isn't a valid fileType value.`
     );
-    process.exit(1);
+    throw new Error(
+      `Invalid config. "${fileType}" isn't a valid fileType value.`
+    );
   });
 
   // TODO: Combine extended fileTypes with overrides
@@ -277,9 +294,85 @@ async function setConfig({ config }) {
     }
     if (fileType.markup) {
       fileType.markup = fileType.markup.map((markup) => {
-        if (typeof markup.regex === "string") markup.regex = [markup.regex];
+        if (typeof markup?.regex === "string") markup.regex = [markup.regex];
         return markup;
       });
+    }
+    if (fileType.extends) {
+      // If fileType extends another, merge the properties
+      const extendedFileTypeRaw = defaultFileTypes[fileType.extends];
+      if (!extendedFileTypeRaw) {
+        log(
+          config,
+          "error",
+          'Invalid config. fileType.extends references unknown fileType definition: "' +
+            fileType.extends +
+            '".'
+        );
+        throw new Error(
+          'Invalid config. fileType.extends references unknown fileType definition: "' +
+            fileType.extends +
+            '".'
+        );
+      }
+      const extendedFileType = JSON.parse(JSON.stringify(extendedFileTypeRaw));
+      if (extendedFileType) {
+        if (!fileType.name) {
+          fileType.name = extendedFileType.name;
+        }
+
+        // Merge extensions
+        if (extendedFileType?.extensions) {
+          fileType.extensions = [
+            ...new Set([
+              ...(extendedFileType.extensions || []),
+              ...(fileType.extensions || []),
+            ]),
+          ];
+        }
+
+        // Merge property values for inlineStatements children
+        if (extendedFileType?.inlineStatements) {
+          if (fileType.inlineStatements === undefined) {
+            fileType.inlineStatements = {};
+          }
+          // Merge each inlineStatements property using Set to ensure uniqueness
+          const keys = [
+            "testStart",
+            "testEnd",
+            "ignoreStart",
+            "ignoreEnd",
+            "step",
+          ];
+          for (const key of keys) {
+            if (
+              extendedFileType?.inlineStatements?.[key] ||
+              fileType?.inlineStatements?.[key]
+            ) {
+              fileType.inlineStatements[key] = [
+                ...new Set([
+                  ...(extendedFileType?.inlineStatements?.[key] || []),
+                  ...(fileType?.inlineStatements?.[key] || []),
+                ]),
+              ];
+            }
+          }
+        }
+
+        // Merge property values for markup array, overwriting when `name` matches
+        if (extendedFileType?.markup) {
+          fileType.markup = fileType.markup || [];
+          extendedFileType.markup.forEach((extendedMarkup) => {
+            const existingMarkupIndex = fileType.markup.findIndex(
+              (markup) => markup.name === extendedMarkup.name
+            );
+            if (existingMarkupIndex === -1) {
+              // Add to markup array
+              fileType.markup.push(extendedMarkup);
+            }
+          });
+        }
+      }
     }
 
     return fileType;
