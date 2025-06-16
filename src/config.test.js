@@ -6,7 +6,7 @@ before(async function () {
   global.expect = expect;
 });
 
-describe("Config tests", async function () {
+describe("Config tests", function () {
   // Test that config is resolved correctly
   it("Config is resolved correctly", async function () {
     const configSets = [
@@ -63,7 +63,7 @@ describe("Config tests", async function () {
   });
 });
 
-describe("File type tests", async function () {
+describe("File type tests", function () {
   // Test that file types are resolved correctly
   it("File types resolve correctly", async function () {
     const customConfig = {
