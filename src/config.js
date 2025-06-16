@@ -237,28 +237,20 @@ async function setConfig({ config }) {
   }
   config = validityCheck.object;
 
-  // Set default values for missing properties
-  config = {
-    fileTypes: [],
-    ...config,
-  };
-
   // Replace fileType strings with objects
-  if (config?.fileTypes) {
-    config.fileTypes = config.fileTypes.map((fileType) => {
-      if (typeof fileType === "object") return fileType;
-      const fileTypeObject = defaultFileTypes[fileType];
-      if (typeof fileTypeObject !== "undefined") return fileTypeObject;
-      log(
-        config,
-        "error",
-        `Invalid config. "${fileType}" isn't a valid fileType value.`
-      );
-      throw new Error(
-        `Invalid config. "${fileType}" isn't a valid fileType value.`
-      );
-    });
-  }
+  config.fileTypes = config.fileTypes.map((fileType) => {
+    if (typeof fileType === "object") return fileType;
+    const fileTypeObject = defaultFileTypes[fileType];
+    if (typeof fileTypeObject !== "undefined") return fileTypeObject;
+    log(
+      config,
+      "error",
+      `Invalid config. "${fileType}" isn't a valid fileType value.`
+    );
+    throw new Error(
+      `Invalid config. "${fileType}" isn't a valid fileType value.`
+    );
+  });
 
   // TODO: Combine extended fileTypes with overrides
 
