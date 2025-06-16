@@ -12,7 +12,7 @@ main();
  */
 async function main() {
   const json = {
-    input: "./dev/doc-content.md",
+    input: "./dev/cleanup.spec.json",
     logLevel: "debug",
   };
   result = await detectTests({ config: json });

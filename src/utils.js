@@ -600,8 +600,7 @@ async function parseContent({ config, content, filePath, fileType }) {
     }
     test = validation.object;
     // If any steps are unsafe, mark the test as unsafe
-    test.unsafe = isUnsafe({ stepArray: test.steps });
-    
+    if (isUnsafe({ stepArray: test.steps })) test.unsafe = true;
   });
 
   return tests;
@@ -642,7 +641,7 @@ async function parseTests({ config, files }) {
           test.steps = test.steps.concat(cleanup.tests[0].steps);
         }
         // If any steps are unsafe, mark the test as unsafe
-        test.unsafe = isUnsafe({ stepArray: test.steps });
+        if (isUnsafe({ stepArray: test.steps })) test.unsafe = true;
       }
       // Validate each step
       for (const test of content.tests) {
