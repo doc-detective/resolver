@@ -1,6 +1,6 @@
 {
   "name": "doc-detective-resolver",
-  "version": "3.1.0",
+  "version": "3.0.17-dev.1",
   "description": "Detect and resolve docs into Doc Detective tests.",
   "main": "src/index.js",
   "scripts": {
@@ -27,7 +27,7 @@
     "@apidevtools/json-schema-ref-parser": "^14.0.1",
     "ajv": "^8.17.1",
     "axios": "^1.10.0",
-    "doc-detective-common": "^3.1.0",
+    "doc-detective-common": "^3.1.0-dev.1",
     "dotenv": "^16.5.0",
     "json-schema-faker": "^0.5.9",
     "posthog-node": "^5.1.1",
