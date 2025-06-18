@@ -88,7 +88,7 @@ function main() {
   // Commit changes
   execCommand("git add package.json package-lock.json");
   execCommand(
-    'git commit -m "bump version to match doc-detective-common [skip ci]"'
+    `git commit -m "Update doc-detective-common [skip ci]"`
   );
 
   // Create tag
