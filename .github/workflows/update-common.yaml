@@ -68,7 +68,8 @@ jobs:
         # Get current project version
         PROJ_VERSION=$(node -p "require('./package.json').version")
         # Get doc-detective-common version (strip ^ or ~)
-        COMMON_VERSION=$(node -p "(require('./package.json').dependencies['doc-detective-common'] || require('./package.json').devDependencies['doc-detective-common'] || '').replace(/^[^\\d]*/, '')")
+        COMMON_VERSION=$(node -p 'require("./package.json").dependencies?.["doc-detective-common"] || require("./package.json").devDependencies?.["doc-detective-common"] || ""')
+        COMMON_VERSION=$(echo "$COMMON_VERSION" | sed 's/^[^0-9]*//')
         # Parse versions
         PROJ_MAJOR=$(echo $PROJ_VERSION | cut -d. -f1)
         PROJ_MINOR=$(echo $PROJ_VERSION | cut -d. -f2)
