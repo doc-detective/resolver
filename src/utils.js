@@ -599,15 +599,9 @@ async function parseContent({ config, content, filePath, fileType }) {
       return false;
     }
     test = validation.object;
-    // If any steps are unsafe, mark the test as unsafe
-    if (isUnsafe({ stepArray: test.steps })) test.unsafe = true;
   });
 
   return tests;
-}
-
-function isUnsafe({ stepArray = [] }) {
-  return stepArray.some((step) => step.unsafe);
 }
 
 // Parse files for tests
@@ -640,8 +634,6 @@ async function parseTests({ config, files }) {
           const cleanup = await readFile({ fileURLOrPath: test.after });
           test.steps = test.steps.concat(cleanup.tests[0].steps);
         }
-        // If any steps are unsafe, mark the test as unsafe
-        if (isUnsafe({ stepArray: test.steps })) test.unsafe = true;
       }
       // Validate each step
       for (const test of content.tests) {
