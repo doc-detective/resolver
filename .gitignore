@@ -108,3 +108,6 @@ dist
 
 # Browser snapshots
 browser-snapshots
+
+# Workspace directories (cloned repositories)
+workspaces/
