@@ -4,6 +4,7 @@ const { log, loadEnvs, replaceEnvs } = require("./utils");
 const { loadDescription } = require("./openapi");
 
 exports.setConfig = setConfig;
+exports.resolveConcurrentRunners = resolveConcurrentRunners;
 
 /**
  * Deep merge two objects, with override properties taking precedence
@@ -189,6 +190,22 @@ defaultFileTypes = {
   asciidoc: defaultFileTypes.asciidoc_1_0,
   html: defaultFileTypes.html_1_0,
 };
+
+/**
+ * Resolves the concurrentRunners configuration value from various input formats
+ * to a concrete integer for the core execution engine.
+ * 
+ * @param {Object} config - The configuration object
+ * @returns {number} The resolved concurrent runners value
+ */
+function resolveConcurrentRunners(config) {
+  if (config.concurrentRunners === true) {
+    // Cap at 4 only for the boolean convenience option
+    return Math.min(os.cpus().length, 4);
+  }
+  // Respect explicit numeric values and default
+  return config.concurrentRunners || 1;
+}
 
 /**
  * Sets up and validates the configuration object for Doc Detective
@@ -380,6 +397,10 @@ async function setConfig({ config }) {
 
   // Detect current environment.
   config.environment = getEnvironment();
+  
+  // Resolve concurrent runners configuration
+  config.concurrentRunners = resolveConcurrentRunners(config);
+  
   // TODO: Revise loadDescriptions() so it doesn't mutate the input but instead returns an updated object
   await loadDescriptions(config);
 

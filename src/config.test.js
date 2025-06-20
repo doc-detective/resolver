@@ -402,3 +402,103 @@ function deepObjectExpect(actual, expected) {
     }
   });
 }
+
+describe("resolveConcurrentRunners", function () {
+  const { resolveConcurrentRunners } = require("./config");
+  const os = require("os");
+  let originalCpus;
+
+  beforeEach(function () {
+    // Save original os.cpus function
+    originalCpus = os.cpus;
+  });
+
+  afterEach(function () {
+    // Restore original os.cpus function
+    os.cpus = originalCpus;
+  });
+
+  it("should resolve boolean true on 8-core system to 4", function () {
+    // Mock os.cpus().length = 8
+    os.cpus = sinon.stub().returns(new Array(8));
+    
+    const result = resolveConcurrentRunners({ concurrentRunners: true });
+    expect(result).to.equal(4);
+  });
+
+  it("should resolve boolean true on 2-core system to 2", function () {
+    // Mock os.cpus().length = 2
+    os.cpus = sinon.stub().returns(new Array(2));
+    
+    const result = resolveConcurrentRunners({ concurrentRunners: true });
+    expect(result).to.equal(2);
+  });
+
+  it("should resolve boolean true on 16-core system to 4", function () {
+    // Mock os.cpus().length = 16
+    os.cpus = sinon.stub().returns(new Array(16));
+    
+    const result = resolveConcurrentRunners({ concurrentRunners: true });
+    expect(result).to.equal(4);
+  });
+
+  it("should resolve boolean true on 1-core system to 1", function () {
+    // Mock os.cpus().length = 1
+    os.cpus = sinon.stub().returns(new Array(1));
+    
+    const result = resolveConcurrentRunners({ concurrentRunners: true });
+    expect(result).to.equal(1);
+  });
+
+  it("should resolve explicit integer 8 to 8", function () {
+    const result = resolveConcurrentRunners({ concurrentRunners: 8 });
+    expect(result).to.equal(8);
+  });
+
+  it("should resolve explicit integer 1 to 1", function () {
+    const result = resolveConcurrentRunners({ concurrentRunners: 1 });
+    expect(result).to.equal(1);
+  });
+
+  it("should resolve explicit integer 16 to 16", function () {
+    const result = resolveConcurrentRunners({ concurrentRunners: 16 });
+    expect(result).to.equal(16);
+  });
+
+  it("should resolve undefined to 1", function () {
+    const result = resolveConcurrentRunners({});
+    expect(result).to.equal(1);
+  });
+
+  it("should resolve null to 1", function () {
+    const result = resolveConcurrentRunners({ concurrentRunners: null });
+    expect(result).to.equal(1);
+  });
+
+  it("should resolve 0 to 1", function () {
+    const result = resolveConcurrentRunners({ concurrentRunners: 0 });
+    expect(result).to.equal(1);
+  });
+
+  it("should resolve boolean false to 1", function () {
+    const result = resolveConcurrentRunners({ concurrentRunners: false });
+    expect(result).to.equal(1);
+  });
+
+  it("should handle integration with setConfig function", async function () {
+    const inputConfig = { 
+      input: ["test.md"], 
+      concurrentRunners: true,
+      logLevel: "info",
+      fileTypes: ["markdown"]
+    };
+    
+    // Mock CPU count to 8 cores
+    os.cpus = sinon.stub().returns(new Array(8));
+    
+    const result = await setConfig({ config: inputConfig });
+    
+    // Should resolve boolean true to 4 (capped) on 8-core system
+    expect(result.concurrentRunners).to.equal(4);
+  });
+});
