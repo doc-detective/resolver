@@ -3,16 +3,9 @@
   "version": "3.1.1-dev.2",
   "description": "Detect and resolve docs into Doc Detective tests.",
   "main": "src/index.js",
-  "workspaces": [
-    "workspaces/*"
-  ],
   "scripts": {
     "test": "mocha src/*.test.js",
-    "dev": "node dev",
-    "postinstall": "node scripts/workspace-setup.js",
-    "workspace:install": "FORCE_WORKSPACE_SETUP=1 node scripts/workspace-setup.js",
-    "workspace:test": "npm run test --workspaces --if-present",
-    "workspace:build": "npm run build --workspaces --if-present"
+    "dev": "node dev"
   },
   "repository": {
     "type": "git",
