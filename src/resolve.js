@@ -27,6 +27,7 @@ function isDriverRequired({ test }) {
 }
 
 function resolveContexts({ contexts, test, config }) {
+  log(config, "debug", `Determining required contexts for test: ${test.testId}`);
   const resolvedContexts = [];
 
   // Check if current test requires a browser
@@ -100,10 +101,12 @@ function resolveContexts({ contexts, test, config }) {
     resolvedContexts.push({});
   }
 
+  log(config, "debug", `Resolved contexts for test ${test.testId}:\n${JSON.stringify(resolvedContexts, null, 2)}`);
   return resolvedContexts;
 }
 
 async function fetchOpenApiDocuments({ config, documentArray }) {
+  log(config, "debug", `Fetching OpenAPI documents:\n${JSON.stringify(documentArray, null, 2)}`);
   const openApiDocuments = [];
   if (config?.integrations?.openApi?.length > 0)
     openApiDocuments.push(...config.integrations.openApi);
@@ -131,11 +134,13 @@ async function fetchOpenApiDocuments({ config, documentArray }) {
       openApiDocuments.push(definition);
     }
   }
+  log(config, "debug", `Fetched OpenAPI documents:\n${JSON.stringify(openApiDocuments, null, 2)}`);
   return openApiDocuments;
 }
 
 // Iterate through and resolve test specifications and contained tests.
 async function resolveDetectedTests({ config, detectedTests }) {
+  log(config, "debug", `RESOLVING DETECTED TEST SPECS:\n${JSON.stringify(detectedTests, null, 2)}`);
   // Set initial shorthand values
   const resolvedTests = {
     config: config,
@@ -149,12 +154,13 @@ async function resolveDetectedTests({ config, detectedTests }) {
     resolvedTests.specs.push(resolvedSpec);
   }
 
+  log(config, "debug", `RESOLVED TEST SPECS:\n${JSON.stringify(resolvedTests, null, 2)}`);
   return resolvedTests;
 }
 
 async function resolveSpec({ config, spec }) {
   const specId = spec.specId || uuid.v4();
-  log(config, "debug", `SPEC: ${specId}`);
+  log(config, "debug", `RESOLVING SPEC ID ${specId}:\n${JSON.stringify(spec, null, 2)}`);
   const resolvedSpec = {
     ...spec,
     specId: specId,
@@ -173,12 +179,13 @@ async function resolveSpec({ config, spec }) {
     });
     resolvedSpec.tests.push(resolvedTest);
   }
+  log(config, "debug", `RESOLVED SPEC ${specId}:\n${JSON.stringify(resolvedSpec, null, 2)}`);
   return resolvedSpec;
 }
 
 async function resolveTest({ config, spec, test }) {
   const testId = test.testId || uuid.v4();
-  log(config, "debug", `TEST: ${testId}`);
+  log(config, "debug", `RESOLVING TEST ID ${testId}:\n${JSON.stringify(test, null, 2)}`);
   const resolvedTest = {
     ...test,
     testId: testId,
@@ -205,13 +212,13 @@ async function resolveTest({ config, spec, test }) {
     });
     resolvedTest.contexts.push(resolvedContext);
   }
-
+  log(config, "debug", `RESOLVED TEST ${testId}:\n${JSON.stringify(resolvedTest, null, 2)}`);
   return resolvedTest;
 }
 
 async function resolveContext({ config, test, context }) {
   const contextId = context.contextId || uuid.v4();
-  log(config, "debug", `CONTEXT: ${contextId}`);
+  log(config, "debug", `RESOLVING CONTEXT ID ${contextId}:\n${JSON.stringify(context, null, 2)}`);
   const resolvedContext = {
     ...context,
     unsafe: test.unsafe || false,
@@ -219,5 +226,6 @@ async function resolveContext({ config, test, context }) {
     steps: [...test.steps],
     contextId: contextId,
   };
+  log(config, "debug", `RESOLVED CONTEXT ${contextId}:\n${JSON.stringify(resolvedContext, null, 2)}`);
   return resolvedContext;
 }
