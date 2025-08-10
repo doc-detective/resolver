@@ -9,7 +9,9 @@ const driverActions = [
   "click",
   "find",
   "goTo",
+  "loadCookies",
   "record",
+  "saveCookies",
   "screenshot",
   "stopRecord",
   "type",
@@ -138,6 +140,7 @@ async function fetchOpenApiDocuments({ config, documentArray }) {
 async function resolveDetectedTests({ config, detectedTests }) {
   // Set initial shorthand values
   const resolvedTests = {
+    resolvedTestsId: uuid.v4(),
     config: config,
     specs: [],
   };
