@@ -1,6 +1,6 @@
 {
   "name": "doc-detective-resolver",
-  "version": "3.2.0",
+  "version": "3.2.0-dev.1",
   "description": "Detect and resolve docs into Doc Detective tests.",
   "main": "src/index.js",
   "scripts": {
