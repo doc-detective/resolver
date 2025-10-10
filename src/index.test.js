@@ -288,3 +288,99 @@ describe("Input/output detect comparisons", async function () {
     expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
   });
 });
+
+const ditaXmlInput = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic</title>
+  <?test
+testId: dita-xml-test
+detectSteps: false
+?>
+  <body>
+    <p>This is a test paragraph.</p>
+    <?step checkLink: "https://example.com" ?>
+    <p>Another paragraph with a test step.</p>
+    <?step find: "test text" ?>
+  </body>
+  <?test end?>
+</topic>
+`;
+
+const ditaXmlInputWindows = `<?xml version="1.0" encoding="UTF-8"?>\r
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">\r
+<topic id="test_topic">\r
+  <title>Test Topic with Windows Line Endings</title>\r
+  <?test\r
+testId: dita-xml-windows-test\r
+detectSteps: false\r
+?>\r
+  <body>\r
+    <p>This is a test paragraph.</p>\r
+    <?step checkLink: "https://example.com" ?>\r
+    <p>Another paragraph with a test step.</p>\r
+    <?step find: "test text" ?>\r
+  </body>\r
+  <?test end?>\r
+</topic>\r
+`;
+
+describe("DITA XML Input Tests", function () {
+  it("should correctly parse DITA XML with processing instruction tests", async function () {
+    // Create temp DITA file
+    const tempDitaFile = "temp_test.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInput.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?test end\\s*\\?>"],
+            ignoreStart: ["<\\?test ignore start\\s*\\?>"],
+            ignoreEnd: ["<\\?test ignore end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+  });
+
+  it("should correctly parse DITA XML with Windows line endings", async function () {
+    // Create temp DITA file with Windows line endings
+    const tempDitaFile = "temp_test_windows.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInputWindows.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?test end\\s*\\?>"],
+            ignoreStart: ["<\\?test ignore start\\s*\\?>"],
+            ignoreEnd: ["<\\?test ignore end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+  });
+});

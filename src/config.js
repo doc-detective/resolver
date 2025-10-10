@@ -65,6 +65,18 @@ let defaultFileTypes = {
     },
     markup: [],
   },
+  dita_1_0: {
+    name: "dita",
+    extensions: ["dita", "ditamap", "xml"],
+    inlineStatements: {
+      testStart: ["<\\?test\\s+([\\s\\S]*?)\\s*\\?>"],
+      testEnd: ["<\\?test end\\s*\\?>"],
+      ignoreStart: ["<\\?test ignore start\\s*\\?>"],
+      ignoreEnd: ["<\\?test ignore end\\s*\\?>"],
+      step: ["<\\?step\\s+([\\s\\S]*?)\\s*\\?>"],
+    },
+    markup: [],
+  },
   html_1_0: {
     name: "html",
     extensions: ["html", "htm"],
@@ -189,6 +201,7 @@ defaultFileTypes = {
   markdown: defaultFileTypes.markdown_1_0,
   asciidoc: defaultFileTypes.asciidoc_1_0,
   html: defaultFileTypes.html_1_0,
+  dita: defaultFileTypes.dita_1_0,
 };
 
 /**
