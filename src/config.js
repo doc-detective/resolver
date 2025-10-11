@@ -91,6 +91,108 @@ let defaultFileTypes = {
       ],
     },
     markup: [
+      // Task Topic - <cmd> with action verbs and UI elements
+      // These patterns extract complete actions from DITA task steps
+      {
+        name: "clickUiControl",
+        regex: [
+          "<cmd>\\s*(?:[Cc]lick|[Tt]ap|[Ss]elect|[Pp]ress|[Cc]hoose)\\s+(?:the\\s+)?<uicontrol>([^<]+)<\\/uicontrol>",
+        ],
+        actions: ["click"],
+      },
+      {
+        name: "typeIntoUiControl",
+        regex: [
+          "<cmd>\\s*(?:[Tt]ype|[Ee]nter|[Ii]nput)\\s+<userinput>([^<]+)<\\/userinput>\\s+(?:in|into)(?:\\s+the)?\\s+<uicontrol>([^<]+)<\\/uicontrol>",
+        ],
+        actions: [
+          {
+            type: {
+              keys: "$1",
+              selector: "$2",
+            },
+          },
+        ],
+      },
+      {
+        name: "navigateToXref",
+        regex: [
+          '<cmd>\\s*(?:[Nn]avigate\\s+to|[Oo]pen|[Gg]o\\s+to|[Vv]isit|[Bb]rowse\\s+to)\\s+<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>',
+        ],
+        actions: ["goTo"],
+      },
+      {
+        name: "runShellCmdWithCodeblock",
+        regex: [
+          "<cmd>\\s*(?:[Rr]un|[Ee]xecute)\\s+(?:the\\s+)?(?:following\\s+)?(?:command)[^<]*<\\/cmd>\\s*<info>\\s*<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+        ],
+        actions: [
+          {
+            runShell: {
+              command: "$1",
+            },
+          },
+        ],
+      },
+      {
+        name: "verifySystemOutput",
+        regex: [
+          "<cmd>\\s*(?:[Vv]erify|[Cc]heck|[Cc]onfirm|[Ee]nsure)\\s+[^<]*<systemoutput>([^<]+)<\\/systemoutput>",
+        ],
+        actions: ["find"],
+      },
+      
+      // Inline Elements - for finding UI elements and text
+      {
+        name: "findUiControl",
+        regex: [
+          "<uicontrol>([^<]+)<\\/uicontrol>",
+        ],
+        actions: ["find"],
+      },
+      {
+        name: "verifyWindowTitle",
+        regex: [
+          "<wintitle>([^<]+)<\\/wintitle>",
+        ],
+        actions: ["find"],
+      },
+      {
+        name: "keyboardShortcut",
+        regex: [
+          "<cmd>\\s*(?:[Pp]ress)\\s+<shortcut>([^<]+)<\\/shortcut>",
+        ],
+        actions: [
+          {
+            type: {
+              keys: "$1",
+            },
+          },
+        ],
+      },
+      {
+        name: "executeCmdName",
+        regex: [
+          "<cmd>\\s*(?:[Ee]xecute|[Rr]un)\\s+<cmdname>([^<]+)<\\/cmdname>",
+        ],
+        actions: [
+          {
+            runShell: {
+              command: "$1",
+            },
+          },
+        ],
+      },
+      
+      // Links and References - for link validation
+      {
+        name: "checkExternalXref",
+        regex: [
+          '<xref\\s+[^>]*scope="external"[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>',
+          '<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*scope="external"[^>]*>',
+        ],
+        actions: ["checkLink"],
+      },
       {
         name: "checkHyperlink",
         regex: [
@@ -98,6 +200,47 @@ let defaultFileTypes = {
         ],
         actions: ["checkLink"],
       },
+      {
+        name: "checkLinkElement",
+        regex: [
+          '<link\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
+        ],
+        actions: ["checkLink"],
+      },
+      
+      // Code Execution
+      {
+        name: "runShellCodeblock",
+        regex: [
+          "<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+        ],
+        actions: [
+          {
+            runShell: {
+              command: "$1",
+            },
+          },
+        ],
+      },
+      {
+        name: "runCode",
+        regex: [
+          "<codeblock[^>]*outputclass=\"(python|py|javascript|js)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+        ],
+        actions: [
+          {
+            unsafe: true,
+            // This is unsafe because it runs arbitrary code, so it should be used with caution.
+            // It is recommended to use this only in trusted environments or with trusted inputs.
+            runCode: {
+              language: "$1",
+              code: "$2",
+            },
+          },
+        ],
+      },
+      
+      // Legacy patterns for compatibility with existing tests
       {
         name: "clickOnscreenText",
         regex: [
