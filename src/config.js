@@ -130,6 +130,24 @@ let defaultFileTypes = {
         actions: ["type"],
       },
       {
+        name: "httpRequestFormat",
+        regex: [
+          "<codeblock[^>]*outputclass=\"http\"[^>]*>\\s*([A-Z]+)\\s+([^\\s]+)(?:\\s+HTTP\\/[\\d.]+)?\\s*(?:\\r?\\n|&#xA;)((?:[^\\s<]+:\\s+[^\\r\\n<]+(?:\\r?\\n|&#xA;))*)(?:\\s*(?:\\r?\\n|&#xA;)([\\s\\S]*?))?\\s*<\\/codeblock>",
+        ],
+        actions: [
+          {
+            httpRequest: {
+              method: "$1",
+              url: "$2",
+              request: {
+                headers: "$3",
+                body: "$4",
+              },
+            },
+          },
+        ],
+      },
+      {
         name: "runCode",
         regex: [
           "<codeblock[^>]*outputclass=\"(bash|python|py|javascript|js)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
