@@ -88,4 +88,42 @@ When using XML-style attributes:
 - String values can be quoted: `name="value"` or unquoted: `name=value`
 - Boolean values are recognized: `detectSteps=false` becomes `false` (boolean)
 - Numeric values are parsed: `wait=500` becomes `500` (number)
+- Dot notation creates nested objects: `httpRequest.url="https://example.com"` becomes `{ httpRequest: { url: "https://example.com" } }`
+
+### Dot Notation for Nested Objects
+
+You can use dot notation in attribute names to create nested object structures. This is particularly useful for complex actions like `httpRequest`:
+
+**Example:**
+```xml
+<?doc-detective step httpRequest.url="https://api.example.com/users" httpRequest.method="GET" ?>
+```
+
+This creates:
+```json
+{
+  "httpRequest": {
+    "url": "https://api.example.com/users",
+    "method": "GET"
+  }
+}
+```
+
+**Multi-level nesting:**
+```xml
+<?doc-detective step httpRequest.url="https://api.example.com/submit" httpRequest.method="POST" httpRequest.request.body="test data" ?>
+```
+
+This creates:
+```json
+{
+  "httpRequest": {
+    "url": "https://api.example.com/submit",
+    "method": "POST",
+    "request": {
+      "body": "test data"
+    }
+  }
+}
+```
 

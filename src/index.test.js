@@ -434,4 +434,62 @@ describe("DITA XML Input Tests", function () {
     const waitStep = results.specs[0].tests[0].contexts[0].steps[2];
     expect(waitStep).to.have.property("wait").that.equals(500);
   });
+
+  it("should correctly parse DITA XML with XML-style dot notation attributes", async function () {
+    const ditaXmlInputDotNotation = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with Dot Notation</title>
+  <?doc-detective test testId="dita-xml-dot-notation-test" detectSteps=false ?>
+  <body>
+    <p>Test with dot notation for nested objects.</p>
+    <?doc-detective step httpRequest.url="https://example.com/api/test" httpRequest.method="GET" ?>
+    <p>Another step with nested properties.</p>
+    <?doc-detective step httpRequest.url="https://example.com/api/submit" httpRequest.method="POST" httpRequest.request.body="test data" ?>
+  </body>
+  <?doc-detective test end?>
+</topic>
+`;
+    // Create temp DITA file with dot notation attributes
+    const tempDitaFile = "temp_test_dot_notation.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInputDotNotation.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-xml-dot-notation-test");
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+    
+    // Verify the first step has nested httpRequest object
+    const step1 = results.specs[0].tests[0].contexts[0].steps[0];
+    expect(step1).to.have.property("httpRequest");
+    expect(step1.httpRequest).to.have.property("url").that.equals("https://example.com/api/test");
+    expect(step1.httpRequest).to.have.property("method").that.equals("GET");
+    
+    // Verify the second step has deeper nested structure
+    const step2 = results.specs[0].tests[0].contexts[0].steps[1];
+    expect(step2).to.have.property("httpRequest");
+    expect(step2.httpRequest).to.have.property("url").that.equals("https://example.com/api/submit");
+    expect(step2.httpRequest).to.have.property("method").that.equals("POST");
+    expect(step2.httpRequest).to.have.property("request");
+    expect(step2.httpRequest.request).to.have.property("body").that.equals("test data");
+  });
 });

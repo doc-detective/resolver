@@ -41,6 +41,7 @@ function isRelativeUrl(url) {
 // Parse XML-style attributes to an object
 // Example: 'wait=500' becomes { wait: 500 }
 // Example: 'testId="myTestId" detectSteps=false' becomes { testId: "myTestId", detectSteps: false }
+// Example: 'httpRequest.url="https://example.com" httpRequest.method="GET"' becomes { httpRequest: { url: "https://example.com", method: "GET" } }
 function parseXmlAttributes({ stringifiedObject }) {
   if (typeof stringifiedObject !== "string") {
     return null;
@@ -66,28 +67,47 @@ function parseXmlAttributes({ stringifiedObject }) {
   // Parse XML-style attributes
   const result = {};
   // Regex to match key=value or key="value" or key='value'
-  // Updated to handle quoted values with spaces and special characters
-  const attrRegex = /(\w+)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  // Updated to handle dot notation in keys (e.g., httpRequest.url)
+  const attrRegex = /([\w.]+)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
   let match;
   let hasMatches = false;
   
   while ((match = attrRegex.exec(str)) !== null) {
     hasMatches = true;
-    const key = match[1];
+    const keyPath = match[1];
     // Value can be in group 2 (double quotes), 3 (single quotes), or 4 (unquoted)
     let value = match[2] !== undefined ? match[2] : (match[3] !== undefined ? match[3] : match[4]);
     
     // Try to parse as boolean
     if (value === 'true') {
-      result[key] = true;
+      value = true;
     } else if (value === 'false') {
-      result[key] = false;
+      value = false;
     } else if (!isNaN(value) && value !== '') {
       // Try to parse as number
-      result[key] = Number(value);
+      value = Number(value);
+    }
+    // else keep as string
+    
+    // Handle dot notation for nested objects
+    if (keyPath.includes('.')) {
+      const keys = keyPath.split('.');
+      let current = result;
+      
+      // Navigate/create the nested structure
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        if (!current[key] || typeof current[key] !== 'object') {
+          current[key] = {};
+        }
+        current = current[key];
+      }
+      
+      // Set the final value
+      current[keys[keys.length - 1]] = value;
     } else {
-      // Keep as string
-      result[key] = value;
+      // Simple key without dot notation
+      result[keyPath] = value;
     }
   }
   
