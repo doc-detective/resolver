@@ -215,6 +215,20 @@ const ditaXmlDetected = `<?xml version="1.0" encoding="UTF-8"?>
 </topic>
 `;
 
+const ditaXmlWindowsLineEndings = `<?xml version="1.0" encoding="UTF-8"?>\r
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">\r
+<topic id="windows_line_endings_test">\r
+  <title>Windows Line Endings Test</title>\r
+  <?test testId: windows-test\r
+detectSteps: true?>\r
+  <body>\r
+    <p>Testing with Windows CRLF line endings.</p>\r
+    <?step checkLink: "https://example.com"?>\r
+    <p>Check this <xref href="https://example.org">example link</xref>.</p>\r
+  </body>\r
+</topic>\r
+`;
+
 const markdownInput = `
 # Doc Detective documentation overview
 
@@ -423,5 +437,46 @@ describe("Input/output detect comparisons", async function () {
     expect(steps[2]).to.have.property("checkLink");
     expect(steps[3]).to.have.property("goTo"); // "Visit" should trigger goToXref
     expect(steps[4]).to.have.property("checkLink");
+  });
+
+  it("should correctly parse DITA XML with Windows line endings", async function () {
+    // Create temp DITA file with Windows CRLF line endings
+    const tempDitaFile = "temp_windows.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlWindowsLineEndings.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\?>"],
+            testEnd: ["<\\?test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\?>"],
+          },
+          markup: [
+            {
+              name: "checkXref",
+              regex: [
+                '<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["checkLink"],
+            },
+          ],
+        },
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    // Should parse test with Windows line endings and detect both step and xref
+    expect(steps).to.be.an("array").that.has.lengthOf(2);
+    expect(steps[0]).to.have.property("checkLink");
+    expect(steps[1]).to.have.property("checkLink");
   });
 });
