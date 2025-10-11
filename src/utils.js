@@ -189,6 +189,15 @@ async function qualifyFiles({ config }) {
     let isFile = fs.statSync(source).isFile();
     let isDir = fs.statSync(source).isDirectory();
 
+    // If ditamap, process with `dita` to build files, then add output directory to dirs array
+    if (isFile && path.extname(source) === ".ditamap") {
+      const ditaOutput = await processDitaMap(source);
+      if (ditaOutput) {
+        dirs.push(ditaOutput);
+      }
+      continue;
+    }
+
     // Parse input
     if (isFile && (await isValidSourceFile({ config, files, source }))) {
       // Passes all checks
@@ -221,6 +230,36 @@ async function qualifyFiles({ config }) {
     }
   }
   return files;
+}
+
+// Process dita map into a set of files
+async function processDitaMap(source) {
+  const outputDir = `${os.tmpdir}/doc-detective/dita_${uuid.v4()}`;
+  log(config, "info", `Processing DITA map: ${source}`);
+  // If doc-detective temp directory doesn't exist, create it
+  if (!fs.existsSync(`${os.tmpdir}/doc-detective`)) {
+    log(config, "debug", `Creating temp directory: ${os.tmpdir}/doc-detective`);
+    fs.mkdirSync(`${os.tmpdir}/doc-detective`);
+  }
+  const ditaVersion = await spawnCommand({ command: "dita", args: ["--version"] });
+  if (ditaVersion.exitCode !== 0) {
+    log(
+      config,
+      "error",
+      `'dita' command not found. Make sure it's installed. Error: ${ditaVersion.stderr}`
+    );
+    return null;
+  }
+
+  const ditaOutputDir = await spawnCommand({
+    command: "dita",
+    args: ["-i", source, "-f", "dita", "-o", outputDir],
+  });
+  if (ditaOutputDir.exitCode !== 0) {
+    log(config, "error", `Failed to process DITA map: ${ditaOutputDir.stderr}`);
+    return null;
+  }
+  return outputDir;
 }
 
 // Check if a source file is valid based on fileType definitions
