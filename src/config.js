@@ -91,64 +91,19 @@ let defaultFileTypes = {
       ],
     },
     markup: [
-      // Processing Instructions - these create specific actions
-      {
-        name: "processingInstructionWait",
-        regex: [
-          '<\\?doc-detective\\s+wait="(\\d+)"\\s*\\?>',
-          '<\\?doc-detective\\s+wait=(\\d+)\\s*\\?>',
-        ],
-        actions: [
-          {
-            action: "wait",
-            duration: "$1",
-          },
-        ],
-      },
-      {
-        name: "processingInstructionScreenshot",
-        regex: [
-          '<\\?doc-detective\\s+screenshot="([^"]+)"\\s*\\?>',
-          '<\\?doc-detective\\s+screenshot=([^\\s>]+)\\s*\\?>',
-        ],
-        actions: [
-          {
-            action: "saveScreenshot",
-            path: "$1",
-          },
-        ],
-      },
-      {
-        name: "processingInstructionSetVar",
-        regex: [
-          '<\\?doc-detective\\s+setVar="([^=]+)=([^"]+)"\\s*\\?>',
-        ],
-        actions: [
-          {
-            action: "setVariables",
-            // Note: This needs special handling for key=value pairs
-            // For now, this creates a basic structure
-          },
-        ],
-      },
-      
       // Task Topic - <cmd> with action verbs and UI elements
+      // These patterns extract complete actions from DITA task steps
       {
         name: "clickUiControl",
         regex: [
           "<cmd>\\s*(?:[Cc]lick|[Tt]ap|[Ss]elect|[Pp]ress|[Cc]hoose)\\s+(?:the\\s+)?<uicontrol>([^<]+)<\\/uicontrol>",
         ],
-        actions: [
-          {
-            action: "click",
-            selector: "$1",
-          },
-        ],
+        actions: ["click"],
       },
       {
         name: "typeIntoUiControl",
         regex: [
-          "<cmd>\\s*(?:[Tt]ype|[Ee]nter|[Ii]nput|[Ff]ill)\\s+<userinput>([^<]+)<\\/userinput>\\s+(?:in|into)\\s+(?:the\\s+)?<uicontrol>([^<]+)<\\/uicontrol>",
+          "<cmd>\\s*(?:[Tt]ype|[Ee]nter|[Ii]nput)\\s+<userinput>([^<]+)<\\/userinput>\\s+(?:in|into)(?:\\s+the)?\\s+<uicontrol>([^<]+)<\\/uicontrol>",
         ],
         actions: [
           {
@@ -159,21 +114,16 @@ let defaultFileTypes = {
         ],
       },
       {
-        name: "navigateToUrl",
+        name: "navigateToXref",
         regex: [
-          '<cmd>\\s*(?:[Nn]avigate\\s+to|[Oo]pen|[Gg]o\\s+to|[Vv]isit|[Bb]rowse\\s+to)\\s+<xref\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
+          '<cmd>\\s*(?:[Nn]avigate\\s+to|[Oo]pen|[Gg]o\\s+to|[Vv]isit|[Bb]rowse\\s+to)\\s+<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>',
         ],
-        actions: [
-          {
-            action: "goTo",
-            url: "$1",
-          },
-        ],
+        actions: ["goTo"],
       },
       {
-        name: "runShellCommand",
+        name: "runShellCmdWithCodeblock",
         regex: [
-          "<cmd>\\s*(?:[Rr]un|[Ee]xecute|[Ii]nvoke)\\s+(?:the\\s+)?(?:following\\s+)?(?:command|script)[^<]*<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+          "<cmd>\\s*(?:[Rr]un|[Ee]xecute)\\s+(?:the\\s+)?(?:following\\s+)?(?:command)[^<]*<\\/cmd>\\s*<info>\\s*<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
         ],
         actions: [
           {
@@ -183,69 +133,32 @@ let defaultFileTypes = {
         ],
       },
       {
-        name: "verifSystemOutput",
+        name: "verifySystemOutput",
         regex: [
           "<cmd>\\s*(?:[Vv]erify|[Cc]heck|[Cc]onfirm|[Ee]nsure)\\s+[^<]*<systemoutput>([^<]+)<\\/systemoutput>",
         ],
-        actions: [
-          {
-            action: "find",
-            selector: "$1",
-          },
-        ],
+        actions: ["find"],
       },
       
-      // Inline Elements - UI element identification
+      // Inline Elements - for finding UI elements and text
       {
         name: "findUiControl",
         regex: [
           "<uicontrol>([^<]+)<\\/uicontrol>",
         ],
-        actions: [
-          {
-            action: "find",
-            selector: "$1",
-          },
-        ],
-      },
-      {
-        name: "menuCascadeNavigation",
-        regex: [
-          "<menucascade>(?:<uicontrol>([^<]+)<\\/uicontrol>)+<\\/menucascade>",
-        ],
-        actions: [
-          // This will need special handling to extract multiple click actions
-          "click",
-        ],
+        actions: ["find"],
       },
       {
         name: "verifyWindowTitle",
         regex: [
           "<wintitle>([^<]+)<\\/wintitle>",
         ],
-        actions: [
-          {
-            action: "find",
-            selector: "$1",
-          },
-        ],
-      },
-      {
-        name: "typeUserInput",
-        regex: [
-          "<userinput>([^<]+)<\\/userinput>",
-        ],
-        actions: [
-          {
-            action: "typeKeys",
-            keys: "$1",
-          },
-        ],
+        actions: ["find"],
       },
       {
         name: "keyboardShortcut",
         regex: [
-          "<shortcut>([^<]+)<\\/shortcut>",
+          "<cmd>\\s*(?:[Pp]ress)\\s+<shortcut>([^<]+)<\\/shortcut>",
         ],
         actions: [
           {
@@ -254,21 +167,25 @@ let defaultFileTypes = {
           },
         ],
       },
-      
-      // Links and References
       {
-        name: "checkExternalLink",
+        name: "executeCmdName",
+        regex: [
+          "<cmd>\\s*(?:[Ee]xecute|[Rr]un)\\s+<cmdname>([^<]+)<\\/cmdname>",
+        ],
+        actions: [
+          {
+            action: "runShell",
+            command: "$1",
+          },
+        ],
+      },
+      
+      // Links and References - for link validation
+      {
+        name: "checkExternalXref",
         regex: [
           '<xref\\s+[^>]*scope="external"[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>',
           '<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*scope="external"[^>]*>',
-        ],
-        actions: ["checkLink"],
-      },
-      {
-        name: "checkInternalLink",
-        regex: [
-          '<xref\\s+[^>]*scope="local"[^>]*href="([^"]+\\.dita)"[^>]*>',
-          '<xref\\s+[^>]*href="([^"]+\\.dita)"[^>]*scope="local"[^>]*>',
         ],
         actions: ["checkLink"],
       },
@@ -287,36 +204,9 @@ let defaultFileTypes = {
         actions: ["checkLink"],
       },
       
-      // Media Elements
-      {
-        name: "screenshotImage",
-        regex: [
-          '<image\\s+[^>]*href="([^"]+)"[^>]*outputclass="[^"]*screenshot[^"]*"[^>]*\\/>',
-        ],
-        actions: [
-          {
-            action: "saveScreenshot",
-            path: "$1",
-          },
-        ],
-      },
-      {
-        name: "validateImage",
-        regex: [
-          '<image\\s+[^>]*href="([^"]+)"[^>]*\\/>',
-        ],
-        actions: [
-          // Image validation - could be visual comparison or just checking existence
-          {
-            action: "find",
-            selector: "img[src*='$1']",
-          },
-        ],
-      },
-      
       // Code Execution
       {
-        name: "runShellCode",
+        name: "runShellCodeblock",
         regex: [
           "<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
         ],
@@ -344,48 +234,8 @@ let defaultFileTypes = {
           },
         ],
       },
-      {
-        name: "validateJsonOutput",
-        regex: [
-          "<codeblock[^>]*outputclass=\"json\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
-        ],
-        actions: [
-          // JSON validation could be used for httpRequest response validation
-          {
-            action: "find",
-            selector: "$1",
-          },
-        ],
-      },
       
-      // Reference Topic - API Testing
-      {
-        name: "apiNameReference",
-        regex: [
-          "<apiname>([^<]+)<\\/apiname>",
-        ],
-        actions: [
-          // API name extraction for httpRequest
-          {
-            action: "httpRequest",
-            // This needs context to build full request
-          },
-        ],
-      },
-      {
-        name: "commandNameExecution",
-        regex: [
-          "<cmdname>([^<]+)<\\/cmdname>",
-        ],
-        actions: [
-          {
-            action: "runShell",
-            command: "$1",
-          },
-        ],
-      },
-      
-      // Legacy patterns for compatibility
+      // Legacy patterns for compatibility with existing tests
       {
         name: "clickOnscreenText",
         regex: [
@@ -404,6 +254,13 @@ let defaultFileTypes = {
           '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+<xref\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
         ],
         actions: ["goTo"],
+      },
+      {
+        name: "screenshotImage",
+        regex: [
+          '<image\\s+[^>]*href="([^"]+)"[^>]*outputclass="[^"]*screenshot[^"]*"[^>]*\\/>',
+        ],
+        actions: ["screenshot"],
       },
       {
         name: "typeText",
