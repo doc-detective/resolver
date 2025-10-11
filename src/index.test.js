@@ -179,6 +179,42 @@ Some pages also have unique headings. If you open [type](https://doc-detective.c
 <!-- step screenshot: reference.png -->
 `;
 
+const ditaXmlInline = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="doc_detective_overview">
+  <title>Doc Detective Documentation Overview</title>
+  <?test testId: doc-detective-docs
+detectSteps: false?>
+  <body>
+    <p>Doc Detective documentation is split into a few key sections:</p>
+    <?step checkLink: "https://doc-detective.com"?>
+    <ul>
+      <li>The landing page discusses what Doc Detective is, what it does, and who might find it useful.</li>
+      <li>The <xref href="https://doc-detective.com/docs/get-started/intro">Get started</xref> section covers how to quickly get up and running with Doc Detective.</li>
+      <?step checkLink: "https://doc-detective.com/docs/get-started/intro"?>
+    </ul>
+    <p>Some pages also have unique headings. If you Go to the <xref href="https://doc-detective.com/docs/get-started/actions/type">type action page</xref>, it has a section on special keys.</p>
+    <?step goTo: "https://doc-detective.com/docs/get-started/actions/type"?>
+  </body>
+</topic>
+`;
+
+const ditaXmlDetected = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="doc_detective_detected">
+  <title>Doc Detective Documentation with Markup Detection</title>
+  <?test testId: dita-detected-test?>
+  <body>
+    <p>This topic tests markup detection in DITA XML files.</p>
+    <p>First, check the main <xref href="https://doc-detective.com">Doc Detective site</xref>.</p>
+    <p>Then, Go to the <xref href="https://doc-detective.com/docs/get-started/intro">Get Started</xref> guide.</p>
+    <ul>
+      <li>Visit the <xref href="https://doc-detective.com/reference/">reference documentation</xref>.</li>
+    </ul>
+  </body>
+</topic>
+`;
+
 const markdownInput = `
 # Doc Detective documentation overview
 
@@ -286,5 +322,106 @@ describe("Input/output detect comparisons", async function () {
     expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
+  });
+
+  it("should correctly parse DITA XML inline input", async function () {
+    // Create temp DITA file
+    const tempDitaFile = "temp.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInline.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\?>"],
+            testEnd: ["<\\?test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\?>"],
+          },
+          markup: [
+            {
+              name: "checkXref",
+              regex: [
+                '<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["checkLink"],
+            },
+            {
+              name: "goToXref",
+              regex: [
+                '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b[^<]*<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["goTo"],
+            },
+          ],
+        },
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    expect(steps).to.be.an("array").that.has.lengthOf(3);
+    // Verify step properties - only processing instruction steps since detectSteps: false
+    expect(steps[0]).to.have.property("checkLink");
+    expect(steps[1]).to.have.property("checkLink");
+    expect(steps[2]).to.have.property("goTo");
+  });
+
+  it("should correctly parse DITA XML with markup detection", async function () {
+    // Create temp DITA file
+    const tempDitaFile = "temp_detected.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlDetected.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\?>"],
+            testEnd: ["<\\?test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\?>"],
+          },
+          markup: [
+            {
+              name: "checkXref",
+              regex: [
+                '<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["checkLink"],
+            },
+            {
+              name: "goToXref",
+              regex: [
+                '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b[^<]*<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["goTo"],
+            },
+          ],
+        },
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    // Should detect markup patterns: checkXref for first link, goToXref for "Go to" link,
+    // checkXref for Get Started xref, goToXref for "Visit" link, and checkXref for reference xref
+    expect(steps).to.be.an("array").that.has.lengthOf(5);
+    expect(steps[0]).to.have.property("checkLink");
+    expect(steps[1]).to.have.property("goTo");
+    expect(steps[2]).to.have.property("checkLink");
+    expect(steps[3]).to.have.property("goTo"); // "Visit" should trigger goToXref
+    expect(steps[4]).to.have.property("checkLink");
   });
 });

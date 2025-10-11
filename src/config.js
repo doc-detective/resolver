@@ -65,6 +65,33 @@ let defaultFileTypes = {
     },
     markup: [],
   },
+  dita_1_0: {
+    name: "dita",
+    extensions: ["dita", "xml"],
+    inlineStatements: {
+      testStart: ["<\\?test\\s+([\\s\\S]*?)\\?>"],
+      testEnd: ["<\\?test\\s+end\\s*\\?>"],
+      ignoreStart: ["<\\?test\\s+ignore\\s+start\\s*\\?>"],
+      ignoreEnd: ["<\\?test\\s+ignore\\s+end\\s*\\?>"],
+      step: ["<\\?step\\s+([\\s\\S]*?)\\?>"],
+    },
+    markup: [
+      {
+        name: "checkXref",
+        regex: [
+          '<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+        ],
+        actions: ["checkLink"],
+      },
+      {
+        name: "goToXref",
+        regex: [
+          '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b[^<]*<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+        ],
+        actions: ["goTo"],
+      },
+    ],
+  },
   html_1_0: {
     name: "html",
     extensions: ["html", "htm"],
@@ -188,6 +215,7 @@ defaultFileTypes = {
   ...defaultFileTypes,
   markdown: defaultFileTypes.markdown_1_0,
   asciidoc: defaultFileTypes.asciidoc_1_0,
+  dita: defaultFileTypes.dita_1_0,
   html: defaultFileTypes.html_1_0,
 };
 
