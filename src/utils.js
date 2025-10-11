@@ -38,9 +38,91 @@ function isRelativeUrl(url) {
   }
 }
 
+// Parse XML-style attributes to an object
+// Example: 'wait=500' becomes { wait: 500 }
+// Example: 'testId="myTestId" detectSteps=false' becomes { testId: "myTestId", detectSteps: false }
+// Example: 'httpRequest.url="https://example.com" httpRequest.method="GET"' becomes { httpRequest: { url: "https://example.com", method: "GET" } }
+function parseXmlAttributes({ stringifiedObject }) {
+  if (typeof stringifiedObject !== "string") {
+    return null;
+  }
+  
+  // Trim the string
+  const str = stringifiedObject.trim();
+  
+  // Check if it looks like XML attributes (key=value pairs)
+  // Must not contain newlines (which would indicate YAML)
+  // Check for YAML-style key: value (colon followed by space, not inside quotes)
+  if (str.includes('\n')) {
+    return null;
+  }
+  
+  // Check if it looks like YAML (key: value pattern outside of quotes)
+  // This regex checks for word followed by colon and space/newline, not inside quotes
+  const yamlPattern = /^\w+:\s/;
+  if (yamlPattern.test(str)) {
+    return null;
+  }
+  
+  // Parse XML-style attributes
+  const result = {};
+  // Regex to match key=value or key="value" or key='value'
+  // Updated to handle dot notation in keys (e.g., httpRequest.url)
+  const attrRegex = /([\w.]+)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  let match;
+  let hasMatches = false;
+  
+  while ((match = attrRegex.exec(str)) !== null) {
+    hasMatches = true;
+    const keyPath = match[1];
+    // Value can be in group 2 (double quotes), 3 (single quotes), or 4 (unquoted)
+    let value = match[2] !== undefined ? match[2] : (match[3] !== undefined ? match[3] : match[4]);
+    
+    // Try to parse as boolean
+    if (value === 'true') {
+      value = true;
+    } else if (value === 'false') {
+      value = false;
+    } else if (!isNaN(value) && value !== '') {
+      // Try to parse as number
+      value = Number(value);
+    }
+    // else keep as string
+    
+    // Handle dot notation for nested objects
+    if (keyPath.includes('.')) {
+      const keys = keyPath.split('.');
+      let current = result;
+      
+      // Navigate/create the nested structure
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        if (!current[key] || typeof current[key] !== 'object') {
+          current[key] = {};
+        }
+        current = current[key];
+      }
+      
+      // Set the final value
+      current[keys[keys.length - 1]] = value;
+    } else {
+      // Simple key without dot notation
+      result[keyPath] = value;
+    }
+  }
+  
+  return hasMatches ? result : null;
+}
+
 // Parse a JSON or YAML object
 function parseObject({ stringifiedObject }) {
   if (typeof stringifiedObject === "string") {
+    // First, try to parse as XML attributes
+    const xmlAttrs = parseXmlAttributes({ stringifiedObject });
+    if (xmlAttrs !== null) {
+      return xmlAttrs;
+    }
+    
     // If string, try to parse as JSON or YAML
     try {
       const json = JSON.parse(stringifiedObject);

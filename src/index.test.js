@@ -288,3 +288,208 @@ describe("Input/output detect comparisons", async function () {
     expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
   });
 });
+
+const ditaXmlInput = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic</title>
+  <?doc-detective test
+testId: dita-xml-test
+detectSteps: false
+?>
+  <body>
+    <p>This is a test paragraph.</p>
+    <?doc-detective step checkLink: "https://example.com" ?>
+    <p>Another paragraph with a test step.</p>
+    <?doc-detective step find: "test text" ?>
+  </body>
+  <?doc-detective test end?>
+</topic>
+`;
+
+const ditaXmlInputWindows = `<?xml version="1.0" encoding="UTF-8"?>\r
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">\r
+<topic id="test_topic">\r
+  <title>Test Topic with Windows Line Endings</title>\r
+  <?doc-detective test\r
+testId: dita-xml-windows-test\r
+detectSteps: false\r
+?>\r
+  <body>\r
+    <p>This is a test paragraph.</p>\r
+    <?doc-detective step checkLink: "https://example.com" ?>\r
+    <p>Another paragraph with a test step.</p>\r
+    <?doc-detective step find: "test text" ?>\r
+  </body>\r
+  <?doc-detective test end?>\r
+</topic>\r
+`;
+
+const ditaXmlInputAttributes = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with XML Attributes</title>
+  <?doc-detective test testId="dita-xml-attributes-test" detectSteps=false ?>
+  <body>
+    <p>This is a test paragraph.</p>
+    <?doc-detective step checkLink="https://example.com" ?>
+    <p>Another paragraph with a test step.</p>
+    <?doc-detective step find="test text" ?>
+    <p>Test with numeric attribute</p>
+    <?doc-detective step wait=500 ?>
+  </body>
+  <?doc-detective test end?>
+</topic>
+`;
+
+describe("DITA XML Input Tests", function () {
+  it("should correctly parse DITA XML with processing instruction tests", async function () {
+    // Create temp DITA file
+    const tempDitaFile = "temp_test.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInput.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+  });
+
+  it("should correctly parse DITA XML with Windows line endings", async function () {
+    // Create temp DITA file with Windows line endings
+    const tempDitaFile = "temp_test_windows.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInputWindows.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+  });
+
+  it("should correctly parse DITA XML with XML-style attributes", async function () {
+    // Create temp DITA file with XML attribute syntax
+    const tempDitaFile = "temp_test_attributes.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInputAttributes.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-xml-attributes-test");
+    expect(results.specs[0].tests[0].detectSteps).to.equal(false);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
+    // Verify the wait step has a numeric value
+    const waitStep = results.specs[0].tests[0].contexts[0].steps[2];
+    expect(waitStep).to.have.property("wait").that.equals(500);
+  });
+
+  it("should correctly parse DITA XML with XML-style dot notation attributes", async function () {
+    const ditaXmlInputDotNotation = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with Dot Notation</title>
+  <?doc-detective test testId="dita-xml-dot-notation-test" detectSteps=false ?>
+  <body>
+    <p>Test with dot notation for nested objects.</p>
+    <?doc-detective step httpRequest.url="https://example.com/api/test" httpRequest.method="GET" ?>
+    <p>Another step with nested properties.</p>
+    <?doc-detective step httpRequest.url="https://example.com/api/submit" httpRequest.method="POST" httpRequest.request.body="test data" ?>
+  </body>
+  <?doc-detective test end?>
+</topic>
+`;
+    // Create temp DITA file with dot notation attributes
+    const tempDitaFile = "temp_test_dot_notation.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInputDotNotation.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-xml-dot-notation-test");
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+    
+    // Verify the first step has nested httpRequest object
+    const step1 = results.specs[0].tests[0].contexts[0].steps[0];
+    expect(step1).to.have.property("httpRequest");
+    expect(step1.httpRequest).to.have.property("url").that.equals("https://example.com/api/test");
+    expect(step1.httpRequest).to.have.property("method").that.equals("GET");
+    
+    // Verify the second step has deeper nested structure
+    const step2 = results.specs[0].tests[0].contexts[0].steps[1];
+    expect(step2).to.have.property("httpRequest");
+    expect(step2.httpRequest).to.have.property("url").that.equals("https://example.com/api/submit");
+    expect(step2.httpRequest).to.have.property("method").that.equals("POST");
+    expect(step2.httpRequest).to.have.property("request");
+    expect(step2.httpRequest.request).to.have.property("body").that.equals("test data");
+  });
+});
