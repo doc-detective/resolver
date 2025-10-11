@@ -90,6 +90,45 @@ let defaultFileTypes = {
         ],
         actions: ["goTo"],
       },
+      {
+        name: "clickBoldText",
+        regex: [
+          "\\b(?:[Cc]lick|[Tt]ap|[Ll]eft-click|[Cc]hoose|[Ss]elect|[Cc]heck)\\b[^<]*<b>([^<]+)<\\/b>",
+        ],
+        actions: ["click"],
+      },
+      {
+        name: "findBoldText",
+        regex: ["<b>([^<]+)<\\/b>"],
+        actions: ["find"],
+      },
+      {
+        name: "typeText",
+        regex: ['\\b(?:[Pp]ress|[Ee]nter|[Tt]ype)\\b[^"]*"([^"]+)"'],
+        actions: ["type"],
+      },
+      {
+        name: "screenshotImage",
+        regex: [
+          '<image\\s+(?:[^>]*\\s+)?href\\s*=\\s*"([^"]+\\.(?:png|jpg|jpeg|gif|svg))"[^>]*(?:\\s+outputclass\\s*=\\s*"[^"]*screenshot[^"]*"[^>]*)?\\/>',
+        ],
+        actions: ["screenshot"],
+      },
+      {
+        name: "runCodeBlock",
+        regex: [
+          '<codeblock\\s+(?:[^>]*\\s+)?outputclass\\s*=\\s*"(?:language-)?(bash|python|py|javascript|js)"[^>]*>([\\s\\S]*?)<\\/codeblock>',
+        ],
+        actions: [
+          {
+            unsafe: true,
+            runCode: {
+              language: "$1",
+              code: "$2",
+            },
+          },
+        ],
+      },
     ],
   },
   html_1_0: {

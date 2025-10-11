@@ -229,6 +229,36 @@ detectSteps: true?>\r
 </topic>\r
 `;
 
+const ditaXmlFullMarkup = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="full_markup_test">
+  <title>Full DITA Markup Detection Test</title>
+  <?test testId: full-markup-test?>
+  <body>
+    <p>This tests various DITA markup patterns.</p>
+    <p>Click the <b>Submit</b> button to proceed.</p>
+    <p>You should see the <b>Welcome</b> message appear.</p>
+    <p>Type "hello world" in the input field.</p>
+    <p>Take a screenshot of the result.</p>
+    <image href="result.png" outputclass="screenshot"/>
+    <p>Check the <xref href="https://example.com/docs">documentation</xref>.</p>
+  </body>
+</topic>
+`;
+
+const ditaXmlWithCodeBlock = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="codeblock_test">
+  <title>DITA Code Block Test</title>
+  <?test testId: codeblock-test?>
+  <body>
+    <p>This tests code block detection.</p>
+    <codeblock outputclass="language-bash">echo "Hello, World!"</codeblock>
+    <codeblock outputclass="python">print("Hello from Python")</codeblock>
+  </body>
+</topic>
+`;
+
 const markdownInput = `
 # Doc Detective documentation overview
 
@@ -478,5 +508,129 @@ describe("Input/output detect comparisons", async function () {
     expect(steps).to.be.an("array").that.has.lengthOf(2);
     expect(steps[0]).to.have.property("checkLink");
     expect(steps[1]).to.have.property("checkLink");
+  });
+
+  it("should correctly parse DITA XML with full markup patterns", async function () {
+    // Create temp DITA file with various markup patterns
+    const tempDitaFile = "temp_full_markup.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlFullMarkup.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\?>"],
+            testEnd: ["<\\?test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\?>"],
+          },
+          markup: [
+            {
+              name: "checkXref",
+              regex: [
+                '<xref\\s+(?:[^>]*\\s+)?href\\s*=\\s*"(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["checkLink"],
+            },
+            {
+              name: "clickBoldText",
+              regex: [
+                "\\b(?:[Cc]lick|[Tt]ap|[Ll]eft-click|[Cc]hoose|[Ss]elect|[Cc]heck)\\b[^<]*<b>([^<]+)<\\/b>",
+              ],
+              actions: ["click"],
+            },
+            {
+              name: "findBoldText",
+              regex: ["<b>([^<]+)<\\/b>"],
+              actions: ["find"],
+            },
+            {
+              name: "typeText",
+              regex: ['\\b(?:[Pp]ress|[Ee]nter|[Tt]ype)\\b[^"]*"([^"]+)"'],
+              actions: ["type"],
+            },
+            {
+              name: "screenshotImage",
+              regex: [
+                '<image\\s+(?:[^>]*\\s+)?href\\s*=\\s*"([^"]+\\.(?:png|jpg|jpeg|gif|svg))"[^>]*(?:\\s+outputclass\\s*=\\s*"[^"]*screenshot[^"]*"[^>]*)?\\/>',
+              ],
+              actions: ["screenshot"],
+            },
+          ],
+        },
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    // Should detect: click Submit, find Submit (both match), find Welcome, type text, screenshot, checkLink
+    expect(steps).to.be.an("array").that.has.lengthOf(6);
+    expect(steps[0]).to.have.property("click");
+    expect(steps[1]).to.have.property("find");
+    expect(steps[2]).to.have.property("find");
+    expect(steps[3]).to.have.property("type");
+    expect(steps[4]).to.have.property("screenshot");
+    expect(steps[5]).to.have.property("checkLink");
+  });
+
+  it("should correctly parse DITA XML with code blocks", async function () {
+    // Create temp DITA file with code blocks
+    const tempDitaFile = "temp_codeblock.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlWithCodeBlock.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?test\\s+([\\s\\S]*?)\\?>"],
+            testEnd: ["<\\?test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?step\\s+([\\s\\S]*?)\\?>"],
+          },
+          markup: [
+            {
+              name: "runCodeBlock",
+              regex: [
+                '<codeblock\\s+(?:[^>]*\\s+)?outputclass\\s*=\\s*"(?:language-)?(bash|python|py|javascript|js)"[^>]*>([\\s\\S]*?)<\\/codeblock>',
+              ],
+              actions: [
+                {
+                  unsafe: true,
+                  runCode: {
+                    language: "$1",
+                    code: "$2",
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    // Should detect both code blocks
+    expect(steps).to.be.an("array").that.has.lengthOf(2);
+    expect(steps[0]).to.have.property("unsafe", true);
+    expect(steps[0]).to.have.property("runCode");
+    expect(steps[0].runCode).to.have.property("language", "bash");
+    expect(steps[0].runCode).to.have.property("code", 'echo "Hello, World!"');
+    expect(steps[1]).to.have.property("unsafe", true);
+    expect(steps[1]).to.have.property("runCode");
+    expect(steps[1].runCode).to.have.property("language", "python");
+    expect(steps[1].runCode).to.have.property("code", 'print("Hello from Python")');
   });
 });
