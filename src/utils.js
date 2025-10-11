@@ -38,9 +38,71 @@ function isRelativeUrl(url) {
   }
 }
 
+// Parse XML-style attributes to an object
+// Example: 'wait=500' becomes { wait: 500 }
+// Example: 'testId="myTestId" detectSteps=false' becomes { testId: "myTestId", detectSteps: false }
+function parseXmlAttributes({ stringifiedObject }) {
+  if (typeof stringifiedObject !== "string") {
+    return null;
+  }
+  
+  // Trim the string
+  const str = stringifiedObject.trim();
+  
+  // Check if it looks like XML attributes (key=value pairs)
+  // Must not contain newlines (which would indicate YAML)
+  // Check for YAML-style key: value (colon followed by space, not inside quotes)
+  if (str.includes('\n')) {
+    return null;
+  }
+  
+  // Check if it looks like YAML (key: value pattern outside of quotes)
+  // This regex checks for word followed by colon and space/newline, not inside quotes
+  const yamlPattern = /^\w+:\s/;
+  if (yamlPattern.test(str)) {
+    return null;
+  }
+  
+  // Parse XML-style attributes
+  const result = {};
+  // Regex to match key=value or key="value" or key='value'
+  // Updated to handle quoted values with spaces and special characters
+  const attrRegex = /(\w+)=(?:"([^"]*)"|'([^']*)'|(\S+))/g;
+  let match;
+  let hasMatches = false;
+  
+  while ((match = attrRegex.exec(str)) !== null) {
+    hasMatches = true;
+    const key = match[1];
+    // Value can be in group 2 (double quotes), 3 (single quotes), or 4 (unquoted)
+    let value = match[2] !== undefined ? match[2] : (match[3] !== undefined ? match[3] : match[4]);
+    
+    // Try to parse as boolean
+    if (value === 'true') {
+      result[key] = true;
+    } else if (value === 'false') {
+      result[key] = false;
+    } else if (!isNaN(value) && value !== '') {
+      // Try to parse as number
+      result[key] = Number(value);
+    } else {
+      // Keep as string
+      result[key] = value;
+    }
+  }
+  
+  return hasMatches ? result : null;
+}
+
 // Parse a JSON or YAML object
 function parseObject({ stringifiedObject }) {
   if (typeof stringifiedObject === "string") {
+    // First, try to parse as XML attributes
+    const xmlAttrs = parseXmlAttributes({ stringifiedObject });
+    if (xmlAttrs !== null) {
+      return xmlAttrs;
+    }
+    
     // If string, try to parse as JSON or YAML
     try {
       const json = JSON.parse(stringifiedObject);

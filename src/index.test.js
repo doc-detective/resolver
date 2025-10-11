@@ -293,17 +293,17 @@ const ditaXmlInput = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
 <topic id="test_topic">
   <title>Test Topic</title>
-  <?test
+  <?doc-detective test
 testId: dita-xml-test
 detectSteps: false
 ?>
   <body>
     <p>This is a test paragraph.</p>
-    <?step checkLink: "https://example.com" ?>
+    <?doc-detective step checkLink: "https://example.com" ?>
     <p>Another paragraph with a test step.</p>
-    <?step find: "test text" ?>
+    <?doc-detective step find: "test text" ?>
   </body>
-  <?test end?>
+  <?doc-detective test end?>
 </topic>
 `;
 
@@ -311,18 +311,35 @@ const ditaXmlInputWindows = `<?xml version="1.0" encoding="UTF-8"?>\r
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">\r
 <topic id="test_topic">\r
   <title>Test Topic with Windows Line Endings</title>\r
-  <?test\r
+  <?doc-detective test\r
 testId: dita-xml-windows-test\r
 detectSteps: false\r
 ?>\r
   <body>\r
     <p>This is a test paragraph.</p>\r
-    <?step checkLink: "https://example.com" ?>\r
+    <?doc-detective step checkLink: "https://example.com" ?>\r
     <p>Another paragraph with a test step.</p>\r
-    <?step find: "test text" ?>\r
+    <?doc-detective step find: "test text" ?>\r
   </body>\r
-  <?test end?>\r
+  <?doc-detective test end?>\r
 </topic>\r
+`;
+
+const ditaXmlInputAttributes = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with XML Attributes</title>
+  <?doc-detective test testId="dita-xml-attributes-test" detectSteps=false ?>
+  <body>
+    <p>This is a test paragraph.</p>
+    <?doc-detective step checkLink="https://example.com" ?>
+    <p>Another paragraph with a test step.</p>
+    <?doc-detective step find="test text" ?>
+    <p>Test with numeric attribute</p>
+    <?doc-detective step wait=500 ?>
+  </body>
+  <?doc-detective test end?>
+</topic>
 `;
 
 describe("DITA XML Input Tests", function () {
@@ -337,11 +354,11 @@ describe("DITA XML Input Tests", function () {
           name: "dita",
           extensions: ["dita", "ditamap", "xml"],
           inlineStatements: {
-            testStart: ["<\\?test\\s+([\\s\\S]*?)\\s*\\?>"],
-            testEnd: ["<\\?test end\\s*\\?>"],
-            ignoreStart: ["<\\?test ignore start\\s*\\?>"],
-            ignoreEnd: ["<\\?test ignore end\\s*\\?>"],
-            step: ["<\\?step\\s+([\\s\\S]*?)\\s*\\?>"],
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
           },
           markup: [],
         }
@@ -366,11 +383,11 @@ describe("DITA XML Input Tests", function () {
           name: "dita",
           extensions: ["dita", "ditamap", "xml"],
           inlineStatements: {
-            testStart: ["<\\?test\\s+([\\s\\S]*?)\\s*\\?>"],
-            testEnd: ["<\\?test end\\s*\\?>"],
-            ignoreStart: ["<\\?test ignore start\\s*\\?>"],
-            ignoreEnd: ["<\\?test ignore end\\s*\\?>"],
-            step: ["<\\?step\\s+([\\s\\S]*?)\\s*\\?>"],
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
           },
           markup: [],
         }
@@ -382,5 +399,39 @@ describe("DITA XML Input Tests", function () {
     expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+  });
+
+  it("should correctly parse DITA XML with XML-style attributes", async function () {
+    // Create temp DITA file with XML attribute syntax
+    const tempDitaFile = "temp_test_attributes.dita";
+    fs.writeFileSync(tempDitaFile, ditaXmlInputAttributes.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+            testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+            ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+            ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+            step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-xml-attributes-test");
+    expect(results.specs[0].tests[0].detectSteps).to.equal(false);
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
+    // Verify the wait step has a numeric value
+    const waitStep = results.specs[0].tests[0].contexts[0].steps[2];
+    expect(waitStep).to.have.property("wait").that.equals(500);
   });
 });

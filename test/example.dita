@@ -2,7 +2,7 @@
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
 <topic id="sample_topic">
   <title>Sample DITA Topic with Doc Detective Tests</title>
-  <?test
+  <?doc-detective test
 testId: sample-dita-test
 detectSteps: false
 ?>
@@ -13,12 +13,12 @@ detectSteps: false
       <title>Test Steps</title>
       <p>The following processing instructions contain test steps:</p>
       
-      <?step checkLink: "https://doc-detective.com" ?>
+      <?doc-detective step checkLink: "https://doc-detective.com" ?>
       
       <p>You can also verify text on screen:</p>
       
-      <?step find: "Sample DITA Topic" ?>
+      <?doc-detective step find: "Sample DITA Topic" ?>
     </section>
   </body>
-  <?test end?>
+  <?doc-detective test end?>
 </topic>

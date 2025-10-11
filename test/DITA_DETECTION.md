@@ -8,26 +8,44 @@ DITA XML files can contain Doc Detective tests using XML processing instructions
 
 ## Syntax
 
+All processing instructions must start with `<?doc-detective` to be recognized by Doc Detective.
+
 ### Test Definition
 
-Use XML processing instructions to define tests:
+Use XML processing instructions to define tests. You can use either YAML format or XML-style attributes.
 
+**YAML format (multiline):**
 ```xml
-<?test
+<?doc-detective test
 testId: my-test-id
 detectSteps: false
 ?>
 <!-- test content here -->
-<?test end?>
+<?doc-detective test end?>
+```
+
+**XML attribute format (single line):**
+```xml
+<?doc-detective test testId="my-test-id" detectSteps=false ?>
+<!-- test content here -->
+<?doc-detective test end?>
 ```
 
 ### Step Definition
 
-Individual test steps can be defined using:
+Individual test steps can be defined using either format:
 
+**YAML format:**
 ```xml
-<?step checkLink: "https://example.com" ?>
-<?step find: "some text" ?>
+<?doc-detective step checkLink: "https://example.com" ?>
+<?doc-detective step find: "some text" ?>
+```
+
+**XML attribute format:**
+```xml
+<?doc-detective step checkLink="https://example.com" ?>
+<?doc-detective step find="some text" ?>
+<?doc-detective step wait=500 ?>
 ```
 
 ## Configuration
@@ -42,11 +60,11 @@ To enable DITA XML detection, add the DITA file type to your configuration:
       "name": "dita",
       "extensions": ["dita", "ditamap", "xml"],
       "inlineStatements": {
-        "testStart": ["<\\?test\\s+([\\s\\S]*?)\\s*\\?>"],
-        "testEnd": ["<\\?test end\\s*\\?>"],
-        "ignoreStart": ["<\\?test ignore start\\s*\\?>"],
-        "ignoreEnd": ["<\\?test ignore end\\s*\\?>"],
-        "step": ["<\\?step\\s+([\\s\\S]*?)\\s*\\?>"]
+        "testStart": ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
+        "testEnd": ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
+        "ignoreStart": ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
+        "ignoreEnd": ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
+        "step": ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"]
       },
       "markup": []
     }
@@ -63,3 +81,11 @@ See `test/example.dita` for a complete example of a DITA topic with embedded Doc
 ## Platform Compatibility
 
 The patterns automatically handle both Unix (`\n`) and Windows (`\r\n`) line endings, ensuring cross-platform compatibility.
+
+## Attribute Parsing
+
+When using XML-style attributes:
+- String values can be quoted: `name="value"` or unquoted: `name=value`
+- Boolean values are recognized: `detectSteps=false` becomes `false` (boolean)
+- Numeric values are parsed: `wait=500` becomes `500` (number)
+
