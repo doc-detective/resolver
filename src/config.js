@@ -107,9 +107,10 @@ let defaultFileTypes = {
         ],
         actions: [
           {
-            action: "typeKeys",
-            keys: "$1",
-            selector: "$2",
+            type: {
+              keys: "$1",
+              selector: "$2",
+            },
           },
         ],
       },
@@ -127,8 +128,9 @@ let defaultFileTypes = {
         ],
         actions: [
           {
-            action: "runShell",
-            command: "$1",
+            runShell: {
+              command: "$1",
+            },
           },
         ],
       },
@@ -162,8 +164,9 @@ let defaultFileTypes = {
         ],
         actions: [
           {
-            action: "typeKeys",
-            keys: "$1",
+            type: {
+              keys: "$1",
+            },
           },
         ],
       },
@@ -174,8 +177,9 @@ let defaultFileTypes = {
         ],
         actions: [
           {
-            action: "runShell",
-            command: "$1",
+            runShell: {
+              command: "$1",
+            },
           },
         ],
       },
@@ -212,8 +216,9 @@ let defaultFileTypes = {
         ],
         actions: [
           {
-            action: "runShell",
-            command: "$1",
+            runShell: {
+              command: "$1",
+            },
           },
         ],
       },

@@ -747,4 +747,141 @@ detectSteps: true
     expect(steps[1]).to.have.property("find").that.equals("test text");
     expect(steps[2]).to.have.property("wait").that.equals(1000);
   });
+
+  it("should correctly detect DITA task elements with enhanced markup patterns", async function () {
+    const ditaTaskInput = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="test_task">
+  <title>Test Task with Enhanced Markup</title>
+  <!-- test
+testId: dita-task-enhanced-test
+detectSteps: true
+-->
+  <taskbody>
+    <steps>
+      <step>
+        <cmd>Click the <uicontrol>Submit</uicontrol> button</cmd>
+      </step>
+      <step>
+        <cmd>Type <userinput>testuser</userinput> into the <uicontrol>Username</uicontrol> field</cmd>
+      </step>
+      <step>
+        <cmd>Navigate to <xref href="https://example.com" format="html" scope="external">Example Site</xref></cmd>
+      </step>
+      <step>
+        <cmd>Verify the output shows <systemoutput>Success</systemoutput></cmd>
+      </step>
+      <step>
+        <cmd>Press <shortcut>Ctrl+S</shortcut> to save</cmd>
+      </step>
+      <step>
+        <cmd>Execute <cmdname>npm install</cmdname></cmd>
+      </step>
+      <step>
+        <cmd>Run the command</cmd>
+        <info>
+          <codeblock outputclass="shell">echo "Hello World"</codeblock>
+        </info>
+      </step>
+    </steps>
+  </taskbody>
+  <!-- test end -->
+</task>
+`;
+    // Create temp DITA file
+    const tempDitaFile = "temp_test_task_enhanced.dita";
+    fs.writeFileSync(tempDitaFile, ditaTaskInput.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: ["<!--\\s*test\\s*([\\s\\S]*?)\\s*-->"],
+            testEnd: ["<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->"],
+            ignoreStart: ["<!--\\s*test ignore start\\s*-->"],
+            ignoreEnd: ["<!--\\s*test ignore end\\s*-->"],
+            step: ["<!--\\s*step\\s*([\\s\\S]*?)\\s*-->"],
+          },
+          markup: [
+            {
+              name: "clickUiControl",
+              regex: ["<cmd>\\s*(?:[Cc]lick|[Tt]ap|[Ss]elect|[Pp]ress|[Cc]hoose)\\s+(?:the\\s+)?<uicontrol>([^<]+)<\\/uicontrol>"],
+              actions: ["click"],
+            },
+            {
+              name: "typeIntoUiControl",
+              regex: ["<cmd>\\s*(?:[Tt]ype|[Ee]nter|[Ii]nput)\\s+<userinput>([^<]+)<\\/userinput>\\s+(?:in|into)(?:\\s+the)?\\s+<uicontrol>([^<]+)<\\/uicontrol>"],
+              actions: [{ type: { keys: "$1", selector: "$2" } }],
+            },
+            {
+              name: "navigateToXref",
+              regex: ['<cmd>\\s*(?:[Nn]avigate\\s+to|[Oo]pen|[Gg]o\\s+to|[Vv]isit|[Bb]rowse\\s+to)\\s+<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>'],
+              actions: ["goTo"],
+            },
+            {
+              name: "verifySystemOutput",
+              regex: ["<cmd>\\s*(?:[Vv]erify|[Cc]heck|[Cc]onfirm|[Ee]nsure)\\s+[^<]*<systemoutput>([^<]+)<\\/systemoutput>"],
+              actions: ["find"],
+            },
+            {
+              name: "keyboardShortcut",
+              regex: ["<cmd>\\s*(?:[Pp]ress)\\s+<shortcut>([^<]+)<\\/shortcut>"],
+              actions: [{ type: { keys: "$1" } }],
+            },
+            {
+              name: "executeCmdName",
+              regex: ["<cmd>\\s*(?:[Ee]xecute|[Rr]un)\\s+<cmdname>([^<]+)<\\/cmdname>"],
+              actions: [{ runShell: { command: "$1" } }],
+            },
+            {
+              name: "runShellCmdWithCodeblock",
+              regex: ["<cmd>\\s*(?:[Rr]un|[Ee]xecute)\\s+(?:the\\s+)?(?:command)[^<]*<\\/cmd>\\s*<info>\\s*<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>"],
+              actions: [{ runShell: { command: "$1" } }],
+            },
+          ],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-task-enhanced-test");
+    
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    expect(steps).to.be.an("array").that.has.length.greaterThan(5);
+    
+    // Verify specific step types
+    // Step 1: Click action
+    const clickStep = steps.find(s => s.click === "Submit");
+    expect(clickStep).to.exist;
+    
+    // Step 2: Type action with selector
+    const typeStep = steps.find(s => s.type && s.type.keys === "testuser");
+    expect(typeStep).to.exist;
+    expect(typeStep.type.selector).to.equal("Username");
+    
+    // Step 3: GoTo action
+    const gotoStep = steps.find(s => s.goTo === "https://example.com");
+    expect(gotoStep).to.exist;
+    
+    // Step 4: Find action
+    const findStep = steps.find(s => s.find === "Success");
+    expect(findStep).to.exist;
+    
+    // Step 5: Type for shortcut
+    const shortcutStep = steps.find(s => s.type && s.type.keys === "Ctrl+S");
+    expect(shortcutStep).to.exist;
+    
+    // Step 6: RunShell for cmdname
+    const cmdnameStep = steps.find(s => s.runShell && s.runShell.command === "npm install");
+    expect(cmdnameStep).to.exist;
+    
+    // Step 7: RunShell for codeblock
+    const codeblockStep = steps.find(s => s.runShell && s.runShell.command && s.runShell.command.includes("Hello World"));
+    expect(codeblockStep).to.exist;
+  });
 });
