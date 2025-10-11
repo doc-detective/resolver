@@ -69,13 +69,84 @@ let defaultFileTypes = {
     name: "dita",
     extensions: ["dita", "ditamap", "xml"],
     inlineStatements: {
-      testStart: ["<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>"],
-      testEnd: ["<\\?doc-detective\\s+test\\s+end\\s*\\?>"],
-      ignoreStart: ["<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>"],
-      ignoreEnd: ["<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>"],
-      step: ["<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>"],
+      testStart: [
+        "<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>",
+        "<!--\\s*test\\s*([\\s\\S]*?)\\s*-->",
+      ],
+      testEnd: [
+        "<\\?doc-detective\\s+test\\s+end\\s*\\?>",
+        "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->",
+      ],
+      ignoreStart: [
+        "<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>",
+        "<!--\\s*test ignore start\\s*-->",
+      ],
+      ignoreEnd: [
+        "<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>",
+        "<!--\\s*test ignore end\\s*-->",
+      ],
+      step: [
+        "<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>",
+        "<!--\\s*step\\s*([\\s\\S]*?)\\s*-->",
+      ],
     },
-    markup: [],
+    markup: [
+      {
+        name: "checkHyperlink",
+        regex: [
+          '<xref\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
+        ],
+        actions: ["checkLink"],
+      },
+      {
+        name: "clickOnscreenText",
+        regex: [
+          "\\b(?:[Cc]lick|[Tt]ap|[Ll]eft-click|[Cc]hoose|[Ss]elect|[Cc]heck)\\b\\s+<b>((?:(?!<\\/b>).)+)<\\/b>",
+        ],
+        actions: ["click"],
+      },
+      {
+        name: "findOnscreenText",
+        regex: ["<b>((?:(?!<\\/b>).)+)<\\/b>"],
+        actions: ["find"],
+      },
+      {
+        name: "goToUrl",
+        regex: [
+          '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+<xref\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
+        ],
+        actions: ["goTo"],
+      },
+      {
+        name: "screenshotImage",
+        regex: [
+          '<image\\s+[^>]*href="([^"]+)"[^>]*outputclass="[^"]*screenshot[^"]*"[^>]*\\/>',
+        ],
+        actions: ["screenshot"],
+      },
+      {
+        name: "typeText",
+        regex: ['\\b(?:[Pp]ress|[Ee]nter|[Tt]ype)\\b\\s+"([^"]+)"'],
+        actions: ["type"],
+      },
+      {
+        name: "runCode",
+        regex: [
+          "<codeblock[^>]*outputclass=\"(bash|python|py|javascript|js)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+        ],
+        actions: [
+          {
+            unsafe: true,
+            // This is unsafe because it runs arbitrary code, so it should be used with caution.
+            // It is recommended to use this only in trusted environments or with trusted inputs.
+            runCode: {
+              language: "$1",
+              code: "$2",
+            },
+          },
+        ],
+      },
+    ],
   },
   html_1_0: {
     name: "html",

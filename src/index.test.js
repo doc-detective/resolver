@@ -492,4 +492,259 @@ describe("DITA XML Input Tests", function () {
     expect(step2.httpRequest).to.have.property("request");
     expect(step2.httpRequest.request).to.have.property("body").that.equals("test data");
   });
+
+  it("should correctly parse DITA XML with HTML comment-style tests", async function () {
+    const ditaHtmlCommentInput = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with HTML Comments</title>
+  <!-- test
+testId: dita-html-comment-test
+detectSteps: false
+-->
+  <body>
+    <p>This is a test paragraph.</p>
+    <!-- step checkLink: "https://example.com" -->
+    <p>Another paragraph with a test step.</p>
+    <!-- step find: "test text" -->
+  </body>
+  <!-- test end -->
+</topic>
+`;
+    // Create temp DITA file
+    const tempDitaFile = "temp_test_html_comments.dita";
+    fs.writeFileSync(tempDitaFile, ditaHtmlCommentInput.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: [
+              "<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>",
+              "<!--\\s*test\\s*([\\s\\S]*?)\\s*-->",
+            ],
+            testEnd: [
+              "<\\?doc-detective\\s+test\\s+end\\s*\\?>",
+              "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->",
+            ],
+            ignoreStart: [
+              "<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>",
+              "<!--\\s*test ignore start\\s*-->",
+            ],
+            ignoreEnd: [
+              "<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>",
+              "<!--\\s*test ignore end\\s*-->",
+            ],
+            step: [
+              "<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>",
+              "<!--\\s*step\\s*([\\s\\S]*?)\\s*-->",
+            ],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-html-comment-test");
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(2);
+  });
+
+  it("should correctly detect DITA markup patterns", async function () {
+    const ditaMarkupInput = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with Markup Detection</title>
+  <!-- test
+testId: dita-markup-test
+detectSteps: true
+-->
+  <body>
+    <p>Check this link: <xref href="https://example.com">Example Site</xref></p>
+    <p>Click <b>Submit Button</b> to continue.</p>
+    <p>Find <b>search text</b> on the page.</p>
+    <p>Go to <xref href="https://test.com">Test Site</xref></p>
+    <p>Type "sample text" in the field.</p>
+    <codeblock outputclass="bash">echo "Hello World"</codeblock>
+  </body>
+  <!-- test end -->
+</topic>
+`;
+    // Create temp DITA file
+    const tempDitaFile = "temp_test_markup.dita";
+    fs.writeFileSync(tempDitaFile, ditaMarkupInput.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: [
+              "<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>",
+              "<!--\\s*test\\s*([\\s\\S]*?)\\s*-->",
+            ],
+            testEnd: [
+              "<\\?doc-detective\\s+test\\s+end\\s*\\?>",
+              "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->",
+            ],
+            ignoreStart: [
+              "<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>",
+              "<!--\\s*test ignore start\\s*-->",
+            ],
+            ignoreEnd: [
+              "<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>",
+              "<!--\\s*test ignore end\\s*-->",
+            ],
+            step: [
+              "<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>",
+              "<!--\\s*step\\s*([\\s\\S]*?)\\s*-->",
+            ],
+          },
+          markup: [
+            {
+              name: "checkHyperlink",
+              regex: [
+                '<xref\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["checkLink"],
+            },
+            {
+              name: "clickOnscreenText",
+              regex: [
+                "\\b(?:[Cc]lick|[Tt]ap|[Ll]eft-click|[Cc]hoose|[Ss]elect|[Cc]heck)\\b\\s+<b>((?:(?!<\\/b>).)+)<\\/b>",
+              ],
+              actions: ["click"],
+            },
+            {
+              name: "findOnscreenText",
+              regex: ["<b>((?:(?!<\\/b>).)+)<\\/b>"],
+              actions: ["find"],
+            },
+            {
+              name: "goToUrl",
+              regex: [
+                '\\b(?:[Gg]o\\s+to|[Oo]pen|[Nn]avigate\\s+to|[Vv]isit|[Aa]ccess|[Pp]roceed\\s+to|[Ll]aunch)\\b\\s+<xref\\s+href="(https?:\\/\\/[^"]+)"[^>]*>',
+              ],
+              actions: ["goTo"],
+            },
+            {
+              name: "typeText",
+              regex: ['\\b(?:[Pp]ress|[Ee]nter|[Tt]ype)\\b\\s+"([^"]+)"'],
+              actions: ["type"],
+            },
+            {
+              name: "runCode",
+              regex: [
+                "<codeblock[^>]*outputclass=\"(bash|python|py|javascript|js)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+              ],
+              actions: [
+                {
+                  unsafe: true,
+                  runCode: {
+                    language: "$1",
+                    code: "$2",
+                  },
+                },
+              ],
+            },
+          ],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-markup-test");
+    expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    expect(steps).to.be.an("array");
+    expect(steps.length).to.be.at.least(3);
+    
+    // Verify checkLink step
+    const checkLinkStep = steps.find(s => s.checkLink);
+    expect(checkLinkStep).to.exist;
+    expect(checkLinkStep.checkLink).to.equal("https://example.com");
+    
+    // Verify click step
+    const clickStep = steps.find(s => s.click && s.click === "Submit Button");
+    expect(clickStep).to.exist;
+    
+    // Verify type step
+    const typeStep = steps.find(s => s.type);
+    expect(typeStep).to.exist;
+    expect(typeStep.type).to.equal("sample text");
+  });
+
+  it("should correctly parse DITA with mixed processing instructions and HTML comments", async function () {
+    const ditaMixedInput = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="test_topic">
+  <title>Test Topic with Mixed Syntax</title>
+  <?doc-detective test testId="dita-mixed-test" detectSteps=false ?>
+  <body>
+    <p>Step with PI syntax.</p>
+    <?doc-detective step checkLink: "https://example.com" ?>
+    <p>Step with HTML comment syntax.</p>
+    <!-- step find: "test text" -->
+    <p>Another PI step.</p>
+    <?doc-detective step wait=1000 ?>
+  </body>
+  <!-- test end -->
+</topic>
+`;
+    // Create temp DITA file
+    const tempDitaFile = "temp_test_mixed.dita";
+    fs.writeFileSync(tempDitaFile, ditaMixedInput.trim());
+    const config = {
+      input: tempDitaFile,
+      fileTypes: [
+        {
+          name: "dita",
+          extensions: ["dita", "ditamap", "xml"],
+          inlineStatements: {
+            testStart: [
+              "<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>",
+              "<!--\\s*test\\s*([\\s\\S]*?)\\s*-->",
+            ],
+            testEnd: [
+              "<\\?doc-detective\\s+test\\s+end\\s*\\?>",
+              "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->",
+            ],
+            ignoreStart: [
+              "<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>",
+              "<!--\\s*test ignore start\\s*-->",
+            ],
+            ignoreEnd: [
+              "<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>",
+              "<!--\\s*test ignore end\\s*-->",
+            ],
+            step: [
+              "<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>",
+              "<!--\\s*step\\s*([\\s\\S]*?)\\s*-->",
+            ],
+          },
+          markup: [],
+        }
+      ],
+    };
+    const results = await detectAndResolveTests({ config });
+    fs.unlinkSync(tempDitaFile); // Clean up temp file
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests).to.be.an("array").that.has.lengthOf(1);
+    expect(results.specs[0].tests[0].testId).to.equal("dita-mixed-test");
+    expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
+    
+    // Verify all three steps are present
+    const steps = results.specs[0].tests[0].contexts[0].steps;
+    expect(steps[0]).to.have.property("checkLink").that.equals("https://example.com");
+    expect(steps[1]).to.have.property("find").that.equals("test text");
+    expect(steps[2]).to.have.property("wait").that.equals(1000);
+  });
 });
