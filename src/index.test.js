@@ -287,4 +287,14 @@ describe("Input/output detect comparisons", async function () {
     expect(results.specs[0].tests[0].contexts).to.be.an("array").that.has.lengthOf(1);
     expect(results.specs[0].tests[0].contexts[0].steps).to.be.an("array").that.has.lengthOf(3);
   });
+
+  it("should support Word format via convertWordToMarkdown", async function () {
+    const { convertWordToMarkdown } = require("./utils");
+    
+    // Test that the function exists and is callable
+    expect(convertWordToMarkdown).to.be.a("function");
+    
+    // Note: A full integration test would require a real .docx file
+    // This test verifies the function exists and can be imported
+  });
 });

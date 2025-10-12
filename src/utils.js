@@ -6,6 +6,7 @@ const axios = require("axios");
 const path = require("path");
 const uuid = require("uuid");
 const { spawn } = require("child_process");
+const mammoth = require("mammoth");
 const {
   validate,
   resolvePaths,
@@ -26,6 +27,41 @@ exports.cleanTemp = cleanTemp;
 exports.calculatePercentageDifference = calculatePercentageDifference;
 exports.fetchFile = fetchFile;
 exports.isRelativeUrl = isRelativeUrl;
+exports.convertWordToMarkdown = convertWordToMarkdown;
+
+/**
+ * Converts a Word document (.docx) to Markdown.
+ * 
+ * @async
+ * @param {string} filePath - Path to the Word document file.
+ * @returns {Promise<string>} A promise that resolves to the Markdown content.
+ */
+async function convertWordToMarkdown(filePath) {
+  try {
+    const result = await mammoth.convertToMarkdown({ path: filePath });
+    let markdown = result.value;
+    
+    // Convert mammoth's __bold__ syntax to standard **bold** syntax
+    // This ensures compatibility with Doc Detective's markdown parsing
+    markdown = markdown.replace(/__([^_]+)__/g, '**$1**');
+    
+    // Unescape characters to allow inline test specifications
+    // Mammoth escapes special characters with backslashes in Markdown output
+    // We need to unescape them so HTML comments like <!-- test --> work correctly
+    markdown = markdown.replace(/\\!/g, '!');
+    markdown = markdown.replace(/\\-/g, '-');
+    markdown = markdown.replace(/\\{/g, '{');
+    markdown = markdown.replace(/\\}/g, '}');
+    markdown = markdown.replace(/\\"/g, '"');
+    markdown = markdown.replace(/\\\./g, '.');
+    markdown = markdown.replace(/\\</g, '<');
+    markdown = markdown.replace(/\\>/g, '>');
+    
+    return markdown;
+  } catch (error) {
+    throw new Error(`Failed to convert Word document to Markdown: ${error.message}`);
+  }
+}
 
 function isRelativeUrl(url) {
   try {
@@ -613,7 +649,27 @@ async function parseTests({ config, files }) {
     log(config, "debug", `file: ${file}`);
     const extension = path.extname(file).slice(1);
     let content = "";
-    content = await readFile({ fileURLOrPath: file });
+    
+    // Check if file is a Word document
+    const isWordDocument = ["docx", "doc"].includes(extension.toLowerCase());
+    
+    if (isWordDocument) {
+      // Convert Word document to Markdown
+      try {
+        log(config, "debug", `Converting Word document to Markdown: ${file}`);
+        content = await convertWordToMarkdown(file);
+        log(config, "debug", `Successfully converted Word document to Markdown`);
+      } catch (error) {
+        log(
+          config,
+          "warning",
+          `Failed to convert Word document ${file}: ${error.message}. Skipping.`
+        );
+        continue;
+      }
+    } else {
+      content = await readFile({ fileURLOrPath: file });
+    }
 
     if (typeof content === "object") {
       // Resolve to catch any relative setup or cleanup paths
@@ -682,9 +738,18 @@ async function parseTests({ config, files }) {
       // Process non-object
       let id = `${uuid.v4()}`;
       let spec = { specId: id, contentPath: file, tests: [] };
-      const fileType = config.fileTypes.find((fileType) =>
-        fileType.extensions.includes(extension)
-      );
+      
+      // For Word documents converted to Markdown, use the markdown fileType
+      let fileType;
+      if (isWordDocument) {
+        fileType = config.fileTypes.find((fileType) =>
+          fileType.name === "markdown"
+        );
+      } else {
+        fileType = config.fileTypes.find((fileType) =>
+          fileType.extensions.includes(extension)
+        );
+      }
 
       // Process executables
       if (fileType.runShell) {

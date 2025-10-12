@@ -30,12 +30,14 @@
     "doc-detective-common": "^3.3.0",
     "dotenv": "^17.2.1",
     "json-schema-faker": "^0.5.9",
+    "mammoth": "^1.11.0",
     "posthog-node": "^5.7.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
     "body-parser": "^2.2.0",
     "chai": "^6.0.1",
+    "docx": "^9.5.1",
     "express": "^5.1.0",
     "mocha": "^11.7.1",
     "proxyquire": "^2.1.3",
