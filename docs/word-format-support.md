@@ -12,8 +12,40 @@ All Markdown-based test detection features work with Word documents, including:
 
 - **Bold text detection**: Text formatted as bold in Word will be detected for click and find actions
 - **Hyperlinks**: Links in Word documents are converted and processed
-- **Test specifications**: HTML comment-style test specifications can be added to Word documents
+- **Inline test specifications**: HTML comment-style test specifications typed as plain text in Word documents
 - **Code blocks**: Code blocks are preserved during conversion (limited support)
+
+### Inline Test Specifications
+
+You can specify inline test specifications in Word documents by typing HTML comment syntax as plain text. These will be preserved during conversion and processed by Doc Detective.
+
+**Example:**
+
+In your Word document, type the following as regular text:
+
+```
+<!-- test { "id": "my-test" } -->
+
+Click **Submit** button
+
+<!-- step { "goTo": "https://example.com" } -->
+
+Look for the **Welcome** message
+```
+
+Doc Detective will recognize and parse these inline specifications just like it does in Markdown files.
+
+**Supported inline specification types:**
+- `<!-- test { ... } -->` - Start a test with configuration
+- `<!-- step { ... } -->` - Define an explicit test step
+- `<!-- test end -->` - End a test block
+- `<!-- test ignore start -->` / `<!-- test ignore end -->` - Ignore sections
+
+**Tips for using inline specifications in Word:**
+- Type the HTML comments as regular text (don't use Word's comment feature)
+- Use a monospace font (like Courier New) for better readability
+- Ensure proper JSON syntax within the comments
+- The conversion process will unescape these comments automatically
 
 ## Usage
 
@@ -63,7 +95,7 @@ const config = {
 1. **Bold formatting**: Only simple bold formatting is reliably converted. Other text styles may not be preserved.
 2. **Complex layouts**: Tables, multi-column layouts, and other complex formatting may not convert cleanly.
 3. **Images**: Images are not currently processed or embedded in the converted Markdown.
-4. **Comments**: Word comments are not preserved in the conversion.
+4. **Word Comments**: Word's built-in comment feature (Review > New Comment) is not extracted. To use inline test specifications, type HTML comments as plain text in the document body instead.
 
 ## Dependencies
 

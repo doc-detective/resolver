@@ -39,10 +39,24 @@ exports.convertWordToMarkdown = convertWordToMarkdown;
 async function convertWordToMarkdown(filePath) {
   try {
     const result = await mammoth.convertToMarkdown({ path: filePath });
+    let markdown = result.value;
+    
     // Convert mammoth's __bold__ syntax to standard **bold** syntax
     // This ensures compatibility with Doc Detective's markdown parsing
-    let markdown = result.value;
     markdown = markdown.replace(/__([^_]+)__/g, '**$1**');
+    
+    // Unescape characters to allow inline test specifications
+    // Mammoth escapes special characters with backslashes in Markdown output
+    // We need to unescape them so HTML comments like <!-- test --> work correctly
+    markdown = markdown.replace(/\\!/g, '!');
+    markdown = markdown.replace(/\\-/g, '-');
+    markdown = markdown.replace(/\\{/g, '{');
+    markdown = markdown.replace(/\\}/g, '}');
+    markdown = markdown.replace(/\\"/g, '"');
+    markdown = markdown.replace(/\\\./g, '.');
+    markdown = markdown.replace(/\\</g, '<');
+    markdown = markdown.replace(/\\>/g, '>');
+    
     return markdown;
   } catch (error) {
     throw new Error(`Failed to convert Word document to Markdown: ${error.message}`);
