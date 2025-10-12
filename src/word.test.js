@@ -39,6 +39,41 @@ describe("Word format support", function () {
     expect(docFileType).to.exist;
   });
 
+  it("should process sample Word document and detect tests", async function () {
+    const sampleDocPath = path.join(__dirname, "../test/artifacts/sample-test.docx");
+    
+    // Check if sample doc exists
+    if (!fs.existsSync(sampleDocPath)) {
+      this.skip(); // Skip test if sample doc doesn't exist
+      return;
+    }
+
+    const results = await detectAndResolveTests({
+      config: {
+        input: sampleDocPath,
+        logLevel: "error"
+      }
+    });
+
+    // Verify that specs were detected
+    expect(results).to.exist;
+    expect(results.specs).to.be.an("array").that.has.lengthOf(1);
+    
+    const spec = results.specs[0];
+    expect(spec.tests).to.be.an("array").that.has.lengthOf(1);
+    
+    const test = spec.tests[0];
+    expect(test.contexts).to.be.an("array").that.has.lengthOf(1);
+    
+    const context = test.contexts[0];
+    expect(context.steps).to.be.an("array").that.is.not.empty;
+    
+    // Verify some expected steps were detected
+    const stepActions = context.steps.map(step => Object.keys(step)[0]);
+    expect(stepActions).to.include("find");
+    expect(stepActions).to.include("click");
+  });
+
   // Note: Creating an actual Word document for testing would require additional dependencies
   // like docx or officegen. For now, we verify the infrastructure is in place.
   // Integration tests with real Word files should be added when sample files are available.

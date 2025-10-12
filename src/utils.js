@@ -39,7 +39,11 @@ exports.convertWordToMarkdown = convertWordToMarkdown;
 async function convertWordToMarkdown(filePath) {
   try {
     const result = await mammoth.convertToMarkdown({ path: filePath });
-    return result.value; // The generated Markdown
+    // Convert mammoth's __bold__ syntax to standard **bold** syntax
+    // This ensures compatibility with Doc Detective's markdown parsing
+    let markdown = result.value;
+    markdown = markdown.replace(/__([^_]+)__/g, '**$1**');
+    return markdown;
   } catch (error) {
     throw new Error(`Failed to convert Word document to Markdown: ${error.message}`);
   }
