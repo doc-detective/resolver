@@ -182,6 +182,12 @@ let defaultFileTypes = {
       },
     ],
   },
+  word_1_0: {
+    name: "word",
+    extensions: ["docx", "doc"],
+    // Word documents are converted to Markdown and then processed using Markdown rules
+    // No inline statements or markup defined here as conversion happens before parsing
+  },
 };
 // Set keyword versions
 defaultFileTypes = {
@@ -189,6 +195,7 @@ defaultFileTypes = {
   markdown: defaultFileTypes.markdown_1_0,
   asciidoc: defaultFileTypes.asciidoc_1_0,
   html: defaultFileTypes.html_1_0,
+  word: defaultFileTypes.word_1_0,
 };
 
 /**
@@ -253,6 +260,16 @@ async function setConfig({ config }) {
     throw new Error(`Invalid config object: ${validityCheck.errors}. Exiting.`);
   }
   config = validityCheck.object;
+
+  // Add "word" to default fileTypes if using default list (markdown, asciidoc, html)
+  // and word is not already present
+  const defaultList = ["markdown", "asciidoc", "html"];
+  const isDefaultList = config.fileTypes.length === 3 && 
+    config.fileTypes.every(ft => typeof ft === "string" && defaultList.includes(ft));
+  
+  if (isDefaultList && !config.fileTypes.includes("word")) {
+    config.fileTypes.push("word");
+  }
 
   // Replace fileType strings with objects
   config.fileTypes = config.fileTypes.map((fileType) => {
