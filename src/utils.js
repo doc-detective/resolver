@@ -211,9 +211,11 @@ async function qualifyFiles({ config }) {
 
     // If ditamap, process with `dita` to build files, then add output directory to dirs array
     if (isFile && path.extname(source) === ".ditamap") {
-      const ditaOutput = await processDitaMap(source);
+      const ditaOutput = await processDitaMap({config, source});
       if (ditaOutput) {
-        dirs.push(ditaOutput);
+        // Add output directory to to sequence right after the ditamap file
+        const currentIndex = sequence.indexOf(source);
+        sequence.splice(currentIndex + 1, 0, ditaOutput);
       }
       continue;
     }
@@ -253,15 +255,16 @@ async function qualifyFiles({ config }) {
 }
 
 // Process dita map into a set of files
-async function processDitaMap(source) {
-  const outputDir = `${os.tmpdir}/doc-detective/dita_${uuid.v4()}`;
-  log(config, "info", `Processing DITA map: ${source}`);
+async function processDitaMap({config, source}) {
+  // Get MD5 hash of source path to create unique temp directory
+  const hash = crypto.createHash("md5").update(source).digest("hex");
+  const outputDir = `${os.tmpdir}/doc-detective/ditamap_${hash}`;
   // If doc-detective temp directory doesn't exist, create it
   if (!fs.existsSync(`${os.tmpdir}/doc-detective`)) {
     log(config, "debug", `Creating temp directory: ${os.tmpdir}/doc-detective`);
     fs.mkdirSync(`${os.tmpdir}/doc-detective`);
   }
-  const ditaVersion = await spawnCommand({ command: "dita", args: ["--version"] });
+  const ditaVersion = await spawnCommand("dita", ["--version"]);
   if (ditaVersion.exitCode !== 0) {
     log(
       config,
@@ -271,10 +274,8 @@ async function processDitaMap(source) {
     return null;
   }
 
-  const ditaOutputDir = await spawnCommand({
-    command: "dita",
-    args: ["-i", source, "-f", "dita", "-o", outputDir],
-  });
+  log(config, "info", `Processing DITA map: ${source}`);
+  const ditaOutputDir = await spawnCommand("dita", ["-i", source, "-f", "dita", "-o", outputDir]);
   if (ditaOutputDir.exitCode !== 0) {
     log(config, "error", `Failed to process DITA map: ${ditaOutputDir.stderr}`);
     return null;

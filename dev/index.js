@@ -12,7 +12,7 @@ main();
  */
 async function main() {
   const json = {
-    input: "./dev/dev.spec.json",
+    input: "./test/data/dita/model-t/model_t_manual.ditamap",
     logLevel: "debug",
     runOn: [
       {
@@ -20,6 +20,7 @@ async function main() {
         browsers: ["chrome", "firefox"],
       },
     ],
+    fileTypes: [{ extensions: ["dita", "ditamap", "xml"] }],
   };
   result = await detectAndResolveTests({ config: json });
   console.log(JSON.stringify(result, null, 2));
