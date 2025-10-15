@@ -70,24 +70,24 @@ let defaultFileTypes = {
     extensions: ["dita", "ditamap", "xml"],
     inlineStatements: {
       testStart: [
-        "<\\?doc-detective\\s+test\\s+([\\s\\S]*?)\\s*\\?>",
-        "<!--\\s*test\\s*([\\s\\S]*?)\\s*-->",
+        "<\\?doc-detective\\s+test([\\s\\S]*?)\\?>",
+        "<!--\\s*test([\\s\\S]+?)-->",
       ],
       testEnd: [
         "<\\?doc-detective\\s+test\\s+end\\s*\\?>",
-        "<!--\\s*test end\\s*([\\s\\S]*?)\\s*-->",
+        "<!--\\s*test end([\\s\\S]+?)-->",
       ],
       ignoreStart: [
         "<\\?doc-detective\\s+test\\s+ignore\\s+start\\s*\\?>",
-        "<!--\\s*test ignore start\\s*-->",
+        "<!--\\s*test ignore\\s+start\\s*-->",
       ],
       ignoreEnd: [
         "<\\?doc-detective\\s+test\\s+ignore\\s+end\\s*\\?>",
-        "<!--\\s*test ignore end\\s*-->",
+        "<!--\\s*test ignore\\s+end\\s*-->",
       ],
       step: [
         "<\\?doc-detective\\s+step\\s+([\\s\\S]*?)\\s*\\?>",
-        "<!--\\s*step\\s*([\\s\\S]*?)\\s*-->",
+        "<!--\\s*step([\\s\\S]+?)-->",
       ],
     },
     markup: [
@@ -96,14 +96,14 @@ let defaultFileTypes = {
       {
         name: "clickUiControl",
         regex: [
-          "<cmd>\\s*(?:[Cc]lick|[Tt]ap|[Ss]elect|[Pp]ress|[Cc]hoose)\\s+(?:the\\s+)?<uicontrol>([^<]+)<\\/uicontrol>",
+          "(?:[Cc]lick|[Tt]ap|[Ss]elect|[Pp]ress|[Cc]hoose)\\s+(?:the\\s+)?<uicontrol>([^<]+)<\\/uicontrol>",
         ],
         actions: ["click"],
       },
       {
         name: "typeIntoUiControl",
         regex: [
-          "<cmd>\\s*(?:[Tt]ype|[Ee]nter|[Ii]nput)\\s+<userinput>([^<]+)<\\/userinput>\\s+(?:in|into)(?:\\s+the)?\\s+<uicontrol>([^<]+)<\\/uicontrol>",
+          "(?:[Tt]ype|[Ee]nter|[Ii]nput)\\s+<userinput>([^<]+)<\\/userinput>\\s+(?:in|into)(?:\\s+the)?\\s+<uicontrol>([^<]+)<\\/uicontrol>",
         ],
         actions: [
           {
@@ -117,14 +117,14 @@ let defaultFileTypes = {
       {
         name: "navigateToXref",
         regex: [
-          '<cmd>\\s*(?:[Nn]avigate\\s+to|[Oo]pen|[Gg]o\\s+to|[Vv]isit|[Bb]rowse\\s+to)\\s+<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>',
+          '(?:[Nn]avigate\\s+to|[Oo]pen|[Gg]o\\s+to|[Vv]isit|[Bb]rowse\\s+to)\\s+<xref\\s+[^>]*href="(https?:\\/\\/[^"]+)"[^>]*>',
         ],
         actions: ["goTo"],
       },
       {
         name: "runShellCmdWithCodeblock",
         regex: [
-          "<cmd>\\s*(?:[Rr]un|[Ee]xecute)\\s+(?:the\\s+)?(?:following\\s+)?(?:command)[^<]*<\\/cmd>\\s*<info>\\s*<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
+          "(?:[Rr]un|[Ee]xecute)\\s+(?:the\\s+)?(?:following\\s+)?(?:command)[^<]*<\\/cmd>\\s*<info>\\s*<codeblock[^>]*outputclass=\"(?:shell|bash)\"[^>]*>([\\s\\S]*?)<\\/codeblock>",
         ],
         actions: [
           {
@@ -133,15 +133,7 @@ let defaultFileTypes = {
             },
           },
         ],
-      },
-      {
-        name: "verifySystemOutput",
-        regex: [
-          "<cmd>\\s*(?:[Vv]erify|[Cc]heck|[Cc]onfirm|[Ee]nsure)\\s+[^<]*<systemoutput>([^<]+)<\\/systemoutput>",
-        ],
-        actions: ["find"],
-      },
-      
+      },      
       // Inline Elements - for finding UI elements and text
       {
         name: "findUiControl",
@@ -158,9 +150,9 @@ let defaultFileTypes = {
         actions: ["find"],
       },
       {
-        name: "keyboardShortcut",
+        name: "EnterKey",
         regex: [
-          "<cmd>\\s*(?:[Pp]ress)\\s+<shortcut>([^<]+)<\\/shortcut>",
+          "(?:[Pp]ress)\\s+<shortcut>Enter<\\/shortcut>",
         ],
         actions: [
           {
@@ -173,7 +165,7 @@ let defaultFileTypes = {
       {
         name: "executeCmdName",
         regex: [
-          "<cmd>\\s*(?:[Ee]xecute|[Rr]un)\\s+<cmdname>([^<]+)<\\/cmdname>",
+          "(?:[Ee]xecute|[Rr]un)\\s+<cmdname>([^<]+)<\\/cmdname>",
         ],
         actions: [
           {
@@ -498,6 +490,9 @@ async function setConfig({ config }) {
     throw new Error(`Invalid config object: ${validityCheck.errors}. Exiting.`);
   }
   config = validityCheck.object;
+
+  // DEBUG
+  config.fileTypes.push("dita");
 
   // Replace fileType strings with objects
   config.fileTypes = config.fileTypes.map((fileType) => {
