@@ -12,17 +12,16 @@ main();
  */
 async function main() {
   const json = {
-    input: "./test/data/dita/model-t/model_t_manual.ditamap",
+    input: "dev/doc-content.dita",
     logLevel: "debug",
     runOn: [
       {
         platforms: ["linux", "mac", "windows"],
         browsers: ["chrome", "firefox"],
       },
-    ],
-    fileTypes: [{ extensions: ["dita", "ditamap", "xml"] }],
+    ]
   };
-  result = await detectAndResolveTests({ config: json });
+  result = await detectTests({ config: json });
   console.log(JSON.stringify(result, null, 2));
   // Output the result to a file
   const outputPath = path.join(__dirname, "output.json");
