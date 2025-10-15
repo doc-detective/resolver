@@ -50,13 +50,6 @@ function parseXmlAttributes({ stringifiedObject }) {
   // Trim the string
   const str = stringifiedObject.trim();
   
-  // Check if it looks like XML attributes (key=value pairs)
-  // Must not contain newlines (which would indicate YAML)
-  // Check for YAML-style key: value (colon followed by space, not inside quotes)
-  if (str.includes('\n')) {
-    return null;
-  }
-  
   // Check if it looks like YAML (key: value pattern outside of quotes)
   // This regex checks for word followed by colon and space/newline, not inside quotes
   const yamlPattern = /^\w+:\s/;
