@@ -491,9 +491,6 @@ async function setConfig({ config }) {
   }
   config = validityCheck.object;
 
-  // DEBUG
-  config.fileTypes.push("dita");
-
   // Replace fileType strings with objects
   config.fileTypes = config.fileTypes.map((fileType) => {
     if (typeof fileType === "object") return fileType;

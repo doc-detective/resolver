@@ -203,7 +203,7 @@ async function qualifyFiles({ config }) {
     let isDir = fs.statSync(source).isDirectory();
 
     // If ditamap, process with `dita` to build files, then add output directory to dirs array
-    if (isFile && path.extname(source) === ".ditamap") {
+    if (isFile && path.extname(source) === ".ditamap" && config.processDitaMap) {
       const ditaOutput = await processDitaMap({config, source});
       if (ditaOutput) {
         // Add output directory to to sequence right after the ditamap file
