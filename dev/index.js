@@ -12,16 +12,16 @@ main();
  */
 async function main() {
   const json = {
-    input: "./dev/dev.spec.json",
+    input: "dev/doc-content.dita",
     logLevel: "debug",
     runOn: [
       {
         platforms: ["linux", "mac", "windows"],
         browsers: ["chrome", "firefox"],
       },
-    ],
+    ]
   };
-  result = await detectAndResolveTests({ config: json });
+  result = await detectTests({ config: json });
   console.log(JSON.stringify(result, null, 2));
   // Output the result to a file
   const outputPath = path.join(__dirname, "output.json");
