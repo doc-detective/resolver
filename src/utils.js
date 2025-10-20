@@ -4,7 +4,6 @@ const crypto = require("crypto");
 const YAML = require("yaml");
 const axios = require("axios");
 const path = require("path");
-const uuid = require("uuid");
 const { spawn } = require("child_process");
 const {
   validate,
@@ -532,7 +531,7 @@ async function parseContent({ config, content, filePath, fileType }) {
 
   // Process statements into tests and steps
   let tests = [];
-  let testId = `${uuid.v4()}`;
+  let testId = `${crypto.randomUUID()}`;
   let ignore = false;
   let currentIndex = 0;
 
@@ -581,7 +580,7 @@ async function parseContent({ config, content, filePath, fileType }) {
         break;
       case "testEnd":
         // Test end statement
-        testId = `${uuid.v4()}`;
+        testId = `${crypto.randomUUID()}`;
         ignore = false;
         break;
       case "ignoreStart":
@@ -795,7 +794,7 @@ async function parseTests({ config, files }) {
       specs.push(content);
     } else {
       // Process non-object
-      let id = `${uuid.v4()}`;
+      let id = `${crypto.randomUUID()}`;
       let spec = { specId: id, contentPath: file, tests: [] };
       const fileType = config.fileTypes.find((fileType) =>
         fileType.extensions.includes(extension)

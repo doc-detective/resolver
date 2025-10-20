@@ -30,8 +30,7 @@
     "doc-detective-common": "^3.4.0-dita.0-dev.1",
     "dotenv": "^17.2.3",
     "json-schema-faker": "^0.5.9",
-    "posthog-node": "^5.10.0",
-    "uuid": "^13.0.0"
+    "posthog-node": "^5.10.0"
   },
   "devDependencies": {
     "body-parser": "^2.2.0",
