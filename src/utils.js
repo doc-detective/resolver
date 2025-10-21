@@ -6,7 +6,7 @@ const axios = require("axios");
 const path = require("path");
 const uuid = require("uuid");
 const { spawn } = require("child_process");
-const mammoth = require("mammoth");
+const { execSync } = require("child_process");
 const {
   validate,
   resolvePaths,
@@ -30,7 +30,9 @@ exports.isRelativeUrl = isRelativeUrl;
 exports.convertWordToMarkdown = convertWordToMarkdown;
 
 /**
- * Converts a Word document (.docx) to Markdown.
+ * Converts a Word document (.docx) to Markdown using Pandoc.
+ * Uses a custom Lua filter to extract hidden text from Word documents
+ * and convert it to HTML comments for inline test specifications.
  * 
  * @async
  * @param {string} filePath - Path to the Word document file.
@@ -38,24 +40,41 @@ exports.convertWordToMarkdown = convertWordToMarkdown;
  */
 async function convertWordToMarkdown(filePath) {
   try {
-    const result = await mammoth.convertToMarkdown({ path: filePath });
-    let markdown = result.value;
+    // Path to the Lua filter for extracting hidden text
+    const luaFilterPath = path.join(__dirname, 'word-hidden-text-filter.lua');
     
-    // Convert mammoth's __bold__ syntax to standard **bold** syntax
-    // This ensures compatibility with Doc Detective's markdown parsing
-    markdown = markdown.replace(/__([^_]+)__/g, '**$1**');
+    // Use Pandoc to convert Word to Markdown with the Lua filter
+    // The filter extracts hidden text and converts it to HTML comments
+    const command = `pandoc "${filePath}" -f docx -t markdown --lua-filter="${luaFilterPath}" --wrap=none`;
     
-    // Unescape characters to allow inline test specifications
-    // Mammoth escapes special characters with backslashes in Markdown output
-    // We need to unescape them so HTML comments like <!-- test --> work correctly
-    markdown = markdown.replace(/\\!/g, '!');
-    markdown = markdown.replace(/\\-/g, '-');
+    let markdown;
+    try {
+      markdown = execSync(command, {
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+    } catch (execError) {
+      // If Lua filter fails, try without it
+      const fallbackCommand = `pandoc "${filePath}" -f docx -t markdown --wrap=none`;
+      markdown = execSync(fallbackCommand, {
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+    }
+    
+    // Unescape characters that Pandoc escapes for safety
+    // We need HTML comments to work for inline test specifications
+    markdown = markdown.replace(/\\</g, '<');
+    markdown = markdown.replace(/\\>/g, '>');
     markdown = markdown.replace(/\\{/g, '{');
     markdown = markdown.replace(/\\}/g, '}');
     markdown = markdown.replace(/\\"/g, '"');
+    markdown = markdown.replace(/\\!/g, '!');
+    markdown = markdown.replace(/\\-/g, '-');
     markdown = markdown.replace(/\\\./g, '.');
-    markdown = markdown.replace(/\\</g, '<');
-    markdown = markdown.replace(/\\>/g, '>');
+    markdown = markdown.replace(/\\'/g, "'");
     
     return markdown;
   } catch (error) {

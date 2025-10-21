@@ -4,7 +4,15 @@ Doc Detective Resolver now supports Word documents (.docx and .doc files) as inp
 
 ## How It Works
 
-Word documents are automatically converted to Markdown format using the [mammoth](https://github.com/mwilliamson/mammoth.js) library, then processed using the standard Markdown parsing rules.
+Word documents are automatically converted to Markdown format using [Pandoc](https://pandoc.org/) with a custom Lua filter that extracts hidden text and converts it to HTML comments. The converted Markdown is then processed using the standard Markdown parsing rules.
+
+### Conversion Process
+
+1. **Pandoc** converts the Word document to Markdown
+2. A **custom Lua filter** extracts text marked as "hidden" in Word and wraps it in HTML comment syntax
+3. The resulting Markdown is **processed** by Doc Detective's standard parsing engine
+
+This approach provides a cleaner user experience compared to typing HTML comments as plain text.
 
 ## Supported Features
 
@@ -12,28 +20,44 @@ All Markdown-based test detection features work with Word documents, including:
 
 - **Bold text detection**: Text formatted as bold in Word will be detected for click and find actions
 - **Hyperlinks**: Links in Word documents are converted and processed
-- **Inline test specifications**: HTML comment-style test specifications typed as plain text in Word documents
+- **Inline test specifications**: Use Word's hidden text feature to embed test specifications
 - **Code blocks**: Code blocks are preserved during conversion (limited support)
 
-### Inline Test Specifications
+### Inline Test Specifications with Hidden Text
 
-You can specify inline test specifications in Word documents by typing HTML comment syntax as plain text. These will be preserved during conversion and processed by Doc Detective.
+The preferred method for adding inline test specifications is to use Word's **hidden text** feature. This keeps your documentation clean and readable while embedding test instructions.
+
+**How to use hidden text in Word:**
+
+1. Type your test specification (e.g., `<!-- test { "id": "my-test" } -->`)
+2. Select the text
+3. Press **Ctrl+D** (Windows) or **Cmd+D** (Mac) to open Font dialog
+4. Check the **Hidden** checkbox
+5. Click OK
+
+The hidden text will be extracted during conversion and converted to HTML comments that Doc Detective can parse.
 
 **Example:**
 
-In your Word document, type the following as regular text:
-
+In your Word document, create hidden text containing:
 ```
 <!-- test { "id": "my-test" } -->
-
-Click **Submit** button
-
-<!-- step { "goTo": "https://example.com" } -->
-
-Look for the **Welcome** message
 ```
 
-Doc Detective will recognize and parse these inline specifications just like it does in Markdown files.
+Then write your visible documentation:
+```
+Click **Submit** button
+```
+
+Add another hidden text section:
+```
+<!-- step { "goTo": "https://example.com" } -->
+```
+
+Continue with visible text:
+```
+Look for the **Welcome** message
+```
 
 **Supported inline specification types:**
 - `<!-- test { ... } -->` - Start a test with configuration
@@ -41,11 +65,9 @@ Doc Detective will recognize and parse these inline specifications just like it 
 - `<!-- test end -->` - End a test block
 - `<!-- test ignore start -->` / `<!-- test ignore end -->` - Ignore sections
 
-**Tips for using inline specifications in Word:**
-- Type the HTML comments as regular text (don't use Word's comment feature)
-- Use a monospace font (like Courier New) for better readability
-- Ensure proper JSON syntax within the comments
-- The conversion process will unescape these comments automatically
+**Alternative: Plain Text HTML Comments**
+
+If you prefer not to use hidden text, you can still type HTML comments as plain text (visible in the document). They will be converted correctly, though this makes the document less readable for non-technical users.
 
 ## Usage
 
@@ -90,16 +112,32 @@ const config = {
 };
 ```
 
+## Requirements
+
+**Pandoc** must be installed on your system for Word format support to work:
+
+- **Linux/macOS**: `apt-get install pandoc` or `brew install pandoc`
+- **Windows**: Download from [pandoc.org](https://pandoc.org/installing.html)
+- **Docker**: Include Pandoc in your container image
+
+To verify Pandoc is installed:
+```bash
+pandoc --version
+```
+
 ## Limitations
 
 1. **Bold formatting**: Only simple bold formatting is reliably converted. Other text styles may not be preserved.
 2. **Complex layouts**: Tables, multi-column layouts, and other complex formatting may not convert cleanly.
 3. **Images**: Images are not currently processed or embedded in the converted Markdown.
-4. **Word Comments**: Word's built-in comment feature (Review > New Comment) is not extracted. To use inline test specifications, type HTML comments as plain text in the document body instead.
+4. **Hidden text extraction**: The Lua filter extracts text marked with Word's "Hidden" property. Other methods of hiding text may not be detected.
+5. **Pandoc required**: Pandoc must be installed and available in the system PATH.
 
 ## Dependencies
 
-Word format support requires the `mammoth` npm package, which is included as a dependency of doc-detective-resolver.
+Word format support requires:
+- **Pandoc** - Document conversion engine (must be installed on system)
+- **Lua filter** - Custom filter for extracting hidden text (included with Doc Detective Resolver)
 
 ## Testing
 
