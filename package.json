@@ -26,11 +26,11 @@
   "dependencies": {
     "@apidevtools/json-schema-ref-parser": "^14.2.1",
     "ajv": "^8.17.1",
-    "axios": "^1.12.2",
-    "doc-detective-common": "3.4.0-dev.1",
+    "axios": "^1.13.1",
+    "doc-detective-common": "3.4.0-dev.2",
     "dotenv": "^17.2.3",
     "json-schema-faker": "^0.5.9",
-    "posthog-node": "^5.10.3"
+    "posthog-node": "^5.10.4"
   },
   "devDependencies": {
     "body-parser": "^2.2.0",
