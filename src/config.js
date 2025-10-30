@@ -478,6 +478,12 @@ async function setConfig({ config }) {
     }
   }
 
+  // Extract non-schema fields before validation
+  const nonSchemaFields = {
+    crawl: config.crawl,
+  };
+  delete config.crawl;
+
   // Validate inbound `config`.
   const validityCheck = validate({ schemaKey: "config_v3", object: config });
   if (!validityCheck.valid) {
@@ -490,6 +496,11 @@ async function setConfig({ config }) {
     throw new Error(`Invalid config object: ${validityCheck.errors}. Exiting.`);
   }
   config = validityCheck.object;
+
+  // Restore non-schema fields after validation
+  if (nonSchemaFields.crawl !== undefined) {
+    config.crawl = nonSchemaFields.crawl;
+  }
 
   // Replace fileType strings with objects
   config.fileTypes = config.fileTypes.map((fileType) => {

@@ -3,6 +3,7 @@ const { log } = require("./utils");
 
 exports.extractHtmlUrls = extractHtmlUrls;
 exports.extractMarkdownUrls = extractMarkdownUrls;
+exports.extractXmlSitemapUrls = extractXmlSitemapUrls;
 exports.isSameOrigin = isSameOrigin;
 exports.resolveRelativeUrl = resolveRelativeUrl;
 exports.crawlUrls = crawlUrls;
@@ -57,6 +58,32 @@ function extractMarkdownUrls(markdown) {
     const urlPart = url.split(/\s+/)[0];
     if (urlPart) {
       urls.push(urlPart);
+    }
+  }
+  
+  return urls;
+}
+
+/**
+ * Extracts URLs from XML sitemap.
+ * 
+ * @param {string} xml - The XML sitemap content to parse
+ * @returns {string[]} - Array of extracted URLs
+ */
+function extractXmlSitemapUrls(xml) {
+  if (typeof xml !== "string") {
+    return [];
+  }
+  
+  const urls = [];
+  // Match <loc> tags in XML sitemaps
+  const locRegex = /<loc>([^<]+)<\/loc>/gi;
+  let match;
+  
+  while ((match = locRegex.exec(xml)) !== null) {
+    const url = match[1].trim();
+    if (url) {
+      urls.push(url);
     }
   }
   
@@ -154,10 +181,11 @@ async function crawlUrls({ config, initialUrls }) {
     // Extract URLs based on content type
     let extractedUrls = [];
     if (typeof content === "string") {
-      // Try both HTML and Markdown extraction
+      // Try HTML, Markdown, and XML sitemap extraction
       extractedUrls = [
         ...extractHtmlUrls(content),
         ...extractMarkdownUrls(content),
+        ...extractXmlSitemapUrls(content),
       ];
     }
     

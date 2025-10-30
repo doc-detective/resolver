@@ -134,6 +134,63 @@ describe("crawler", function () {
     });
   });
 
+  describe("extractXmlSitemapUrls", function () {
+    let extractXmlSitemapUrls;
+
+    beforeEach(function () {
+      const crawler = require("./crawler");
+      extractXmlSitemapUrls = crawler.extractXmlSitemapUrls;
+    });
+
+    it("should extract single URL from XML sitemap", function () {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url>
+            <loc>https://example.com/page1</loc>
+          </url>
+        </urlset>`;
+      const urls = extractXmlSitemapUrls(xml);
+      expect(urls).to.deep.equal(["https://example.com/page1"]);
+    });
+
+    it("should extract multiple URLs from XML sitemap", function () {
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url>
+            <loc>https://example.com/page1</loc>
+          </url>
+          <url>
+            <loc>https://example.com/page2</loc>
+          </url>
+          <url>
+            <loc>https://example.com/page3</loc>
+          </url>
+        </urlset>`;
+      const urls = extractXmlSitemapUrls(xml);
+      expect(urls).to.deep.equal([
+        "https://example.com/page1",
+        "https://example.com/page2",
+        "https://example.com/page3",
+      ]);
+    });
+
+    it("should handle empty string", function () {
+      const urls = extractXmlSitemapUrls("");
+      expect(urls).to.deep.equal([]);
+    });
+
+    it("should handle non-string input", function () {
+      const urls = extractXmlSitemapUrls(null);
+      expect(urls).to.deep.equal([]);
+    });
+
+    it("should handle XML without loc tags", function () {
+      const xml = "<?xml version=\"1.0\"?><root><item>test</item></root>";
+      const urls = extractXmlSitemapUrls(xml);
+      expect(urls).to.deep.equal([]);
+    });
+  });
+
   describe("isSameOrigin", function () {
     let isSameOrigin;
 
@@ -486,6 +543,32 @@ describe("crawler", function () {
       });
 
       expect(urls).to.deep.equal(["https://example.com/page1"]);
+    });
+
+    it("should enforce 10,000 URL limit", async function () {
+      const config = { logLevel: "info" };
+      
+      // Create a mock that generates many URLs
+      let callCount = 0;
+      axiosStub.get.callsFake(async (url) => {
+        callCount++;
+        if (callCount <= 10001) {
+          // Generate unique URLs
+          return {
+            data: `<html><a href="https://example.com/page${callCount}">Link</a></html>`,
+          };
+        }
+        return { data: "<html>No more links</html>" };
+      });
+
+      const urls = await crawlUrls({
+        config,
+        initialUrls: ["https://example.com/page0"],
+      });
+
+      // Should stop at 10,000 URLs
+      expect(urls.length).to.equal(10000);
+      expect(logStub.calledWith(config, "warn", sinon.match(/maximum limit/))).to.be.true;
     });
   });
 });
