@@ -26,7 +26,15 @@ function extractHtmlUrls(html) {
   
   while ((match = anchorRegex.exec(html)) !== null) {
     const url = match[1];
-    if (url && url !== "#" && !url.startsWith("javascript:")) {
+    // Filter out unsafe URL schemes
+    const lowerUrl = url.toLowerCase();
+    if (
+      url &&
+      url !== "#" &&
+      !lowerUrl.startsWith("javascript:") &&
+      !lowerUrl.startsWith("vbscript:") &&
+      !lowerUrl.startsWith("data:")
+    ) {
       urls.push(url);
     }
   }

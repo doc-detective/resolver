@@ -60,6 +60,18 @@ describe("crawler", function () {
       expect(urls).to.deep.equal(["https://example.com"]);
     });
 
+    it("should ignore vbscript: links", function () {
+      const html = '<a href="vbscript:alert(1)">VB Link</a><a href="https://example.com">Link</a>';
+      const urls = extractHtmlUrls(html);
+      expect(urls).to.deep.equal(["https://example.com"]);
+    });
+
+    it("should ignore data: links", function () {
+      const html = '<a href="data:text/html,<script>alert(1)</script>">Data Link</a><a href="https://example.com">Link</a>';
+      const urls = extractHtmlUrls(html);
+      expect(urls).to.deep.equal(["https://example.com"]);
+    });
+
     it("should handle empty string", function () {
       const urls = extractHtmlUrls("");
       expect(urls).to.deep.equal([]);
