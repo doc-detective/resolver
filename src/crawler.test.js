@@ -347,7 +347,6 @@ describe("crawler", function () {
 
       const crawlerModule = proxyquire("./crawler", {
         axios: axiosStub,
-        "./utils": { log: logStub },
       });
       crawlUrls = crawlerModule.crawlUrls;
     });
@@ -363,6 +362,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal(["https://example.com/page1"]);
@@ -387,6 +387,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal([
@@ -406,6 +407,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal(["https://example.com/page1"]);
@@ -430,6 +432,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal([
@@ -455,6 +458,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal([
@@ -482,6 +486,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal([
@@ -500,6 +505,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal(["https://example.com/page1"]);
@@ -524,6 +530,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal([
@@ -540,6 +547,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page1"],
+        log: logStub,
       });
 
       expect(urls).to.deep.equal(["https://example.com/page1"]);
@@ -564,6 +572,7 @@ describe("crawler", function () {
       const urls = await crawlUrls({
         config,
         initialUrls: ["https://example.com/page0"],
+        log: logStub,
       });
 
       // Should stop at 10,000 URLs

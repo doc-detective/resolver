@@ -1,5 +1,4 @@
 const axios = require("axios");
-const { log } = require("./utils");
 
 exports.extractHtmlUrls = extractHtmlUrls;
 exports.extractMarkdownUrls = extractMarkdownUrls;
@@ -143,9 +142,13 @@ function resolveRelativeUrl(relativeUrl, baseOrigin) {
  * @param {Object} options - Crawling options
  * @param {Object} options.config - Configuration object
  * @param {string[]} options.initialUrls - Array of initial URLs to crawl
+ * @param {Function} options.log - Logging function (optional)
  * @returns {Promise<string[]>} - Promise resolving to array of all discovered URLs
  */
-async function crawlUrls({ config, initialUrls }) {
+async function crawlUrls({ config, initialUrls, log }) {
+  // Default no-op logger if not provided
+  const logger = log || (() => {});
+  
   const visitedUrls = new Set();
   const discoveredUrls = [];
   const MAX_URLS = 10000;
@@ -163,7 +166,7 @@ async function crawlUrls({ config, initialUrls }) {
     visitedUrls.add(currentUrl);
     discoveredUrls.push(currentUrl);
     
-    log(config, "debug", `Crawling: ${currentUrl}`);
+    logger(config, "debug", `Crawling: ${currentUrl}`);
     
     // Fetch the URL content
     let content;
@@ -174,7 +177,7 @@ async function crawlUrls({ config, initialUrls }) {
       });
       content = response.data;
     } catch (error) {
-      log(config, "warn", `Failed to fetch ${currentUrl}: ${error.message}`);
+      logger(config, "warn", `Failed to fetch ${currentUrl}: ${error.message}`);
       continue;
     }
     
@@ -206,7 +209,7 @@ async function crawlUrls({ config, initialUrls }) {
           }
         } else {
           // No origin configured, skip relative URLs
-          log(
+          logger(
             config,
             "debug",
             `Skipping relative URL (no origin configured): ${url}`
@@ -226,7 +229,7 @@ async function crawlUrls({ config, initialUrls }) {
   
   // Log warning if limit reached
   if (discoveredUrls.length >= MAX_URLS) {
-    log(
+    logger(
       config,
       "warn",
       `Crawling stopped: reached maximum limit of ${MAX_URLS} URLs`

@@ -221,6 +221,7 @@ async function qualifyFiles({ config }) {
       const crawledUrls = await crawlUrls({
         config,
         initialUrls: urlsToCrawl,
+        log,
       });
       
       // Add newly discovered URLs to the sequence
