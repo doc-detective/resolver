@@ -8,7 +8,7 @@ before(async function () {
 });
 
 describe("crawler integration", function () {
-  let qualifyFiles, axiosStub, fsStub, logStub, crawlUrlsStub, readFileStub;
+  let qualifyFiles, axiosStub, fsStub, crawlSitemapStub, readFileStub;
 
   beforeEach(function () {
     axiosStub = {
@@ -23,18 +23,19 @@ describe("crawler integration", function () {
       writeFileSync: sinon.stub(),
     };
     
-    logStub = sinon.stub();
-    crawlUrlsStub = sinon.stub();
+    crawlSitemapStub = sinon.stub();
     readFileStub = sinon.stub().resolves({});
     
     // Mock fetchFile behavior
     axiosStub.get.callsFake(async (url) => {
-      if (url === "https://example.com/page1") {
+      if (url.endsWith("sitemap.xml")) {
         return {
-          data: '<html><a href="https://example.com/page2">Link</a></html>',
+          data: `<?xml version="1.0" encoding="UTF-8"?>
+            <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+              <url><loc>https://example.com/page1</loc></url>
+              <url><loc>https://example.com/page2</loc></url>
+            </urlset>`,
         };
-      } else if (url === "https://example.com/page2") {
-        return { data: "<html>Content</html>" };
       }
       return { data: "" };
     });
@@ -42,7 +43,7 @@ describe("crawler integration", function () {
     const utilsModule = proxyquire("./utils", {
       axios: axiosStub,
       fs: fsStub,
-      "./crawler": { crawlUrls: crawlUrlsStub },
+      "./crawler": { crawlSitemap: crawlSitemapStub },
       "doc-detective-common": {
         validate: () => ({ valid: true }),
         resolvePaths: (x) => x,
@@ -58,14 +59,14 @@ describe("crawler integration", function () {
     sinon.restore();
   });
 
-  it("should enable crawling by default for HTTP URLs", async function () {
+  it("should process sitemap.xml URLs by default", async function () {
     const config = {
-      input: ["https://example.com/page1"],
+      input: ["https://example.com/sitemap.xml"],
       logLevel: "info",
       fileTypes: [],
     };
     
-    crawlUrlsStub.resolves([
+    crawlSitemapStub.resolves([
       "https://example.com/page1",
       "https://example.com/page2",
     ]);
@@ -76,15 +77,29 @@ describe("crawler integration", function () {
     
     await qualifyFiles({ config });
     
-    expect(crawlUrlsStub.calledOnce).to.be.true;
-    expect(crawlUrlsStub.firstCall.args[0].initialUrls).to.deep.equal([
-      "https://example.com/page1",
-    ]);
+    expect(crawlSitemapStub.calledOnce).to.be.true;
+    expect(crawlSitemapStub.firstCall.args[0].sitemapUrl).to.equal("https://example.com/sitemap.xml");
   });
 
-  it("should disable crawling when crawl is false", async function () {
+  it("should not process non-sitemap URLs", async function () {
     const config = {
-      input: ["https://example.com/page1"],
+      input: ["https://example.com/page.html"],
+      logLevel: "info",
+      fileTypes: [],
+    };
+    
+    // Mock file system calls for fetched files
+    fsStub.existsSync.returns(true);
+    fsStub.statSync.returns({ isFile: () => true, isDirectory: () => false });
+    
+    await qualifyFiles({ config });
+    
+    expect(crawlSitemapStub.called).to.be.false;
+  });
+
+  it("should disable processing when crawl is false", async function () {
+    const config = {
+      input: ["https://example.com/sitemap.xml"],
       crawl: false,
       logLevel: "info",
       fileTypes: [],
@@ -96,18 +111,18 @@ describe("crawler integration", function () {
     
     await qualifyFiles({ config });
     
-    expect(crawlUrlsStub.called).to.be.false;
+    expect(crawlSitemapStub.called).to.be.false;
   });
 
-  it("should enable crawling when crawl is true", async function () {
+  it("should enable processing when crawl is true", async function () {
     const config = {
-      input: ["https://example.com/page1"],
+      input: ["https://example.com/sitemap.xml"],
       crawl: true,
       logLevel: "info",
       fileTypes: [],
     };
     
-    crawlUrlsStub.resolves([
+    crawlSitemapStub.resolves([
       "https://example.com/page1",
       "https://example.com/page2",
     ]);
@@ -118,56 +133,30 @@ describe("crawler integration", function () {
     
     await qualifyFiles({ config });
     
-    expect(crawlUrlsStub.calledOnce).to.be.true;
+    expect(crawlSitemapStub.calledOnce).to.be.true;
   });
 
-  it("should not crawl file:// URLs by default", async function () {
+  it("should not process file:// URLs", async function () {
     const config = {
-      input: [],  // Empty input to avoid processing issues
+      input: [],
       logLevel: "info",
       fileTypes: [],
     };
     
-    // file:// URLs won't trigger crawling since they don't start with http:// or https://
-    // This test just verifies no crawling happens
-    
     await qualifyFiles({ config });
     
-    expect(crawlUrlsStub.called).to.be.false;
+    expect(crawlSitemapStub.called).to.be.false;
   });
 
-  it("should pass origin config to crawler", async function () {
+  it("should log sitemap processing activity", async function () {
     const config = {
-      input: ["https://example.com/page1"],
-      origin: "https://example.com",
+      input: ["https://example.com/sitemap.xml"],
       crawl: true,
       logLevel: "info",
       fileTypes: [],
     };
     
-    crawlUrlsStub.resolves(["https://example.com/page1"]);
-    
-    // Mock file system calls for fetched files
-    fsStub.existsSync.returns(true);
-    fsStub.statSync.returns({ isFile: () => true, isDirectory: () => false });
-    
-    await qualifyFiles({ config });
-    
-    expect(crawlUrlsStub.calledOnce).to.be.true;
-    expect(crawlUrlsStub.firstCall.args[0].config.origin).to.equal(
-      "https://example.com"
-    );
-  });
-
-  it("should log crawling activity", async function () {
-    const config = {
-      input: ["https://example.com/page1"],
-      crawl: true,
-      logLevel: "info",
-      fileTypes: [],
-    };
-    
-    crawlUrlsStub.resolves([
+    crawlSitemapStub.resolves([
       "https://example.com/page1",
       "https://example.com/page2",
     ]);
@@ -187,11 +176,11 @@ describe("crawler integration", function () {
     try {
       await qualifyFiles({ config });
       
-      // Check that crawling info was logged
-      const hasCrawlingLog = logOutput.some((msg) => msg.includes("Crawling"));
+      // Check that processing info was logged
+      const hasProcessingLog = logOutput.some((msg) => msg.includes("Processing") && msg.includes("sitemap"));
       const hasDiscoveredLog = logOutput.some((msg) => msg.includes("Discovered"));
       
-      expect(hasCrawlingLog).to.be.true;
+      expect(hasProcessingLog).to.be.true;
       expect(hasDiscoveredLog).to.be.true;
     } finally {
       console.log = originalConsoleLog;

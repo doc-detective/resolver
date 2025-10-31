@@ -11,7 +11,7 @@ const {
   transformToSchemaKey,
   readFile,
 } = require("doc-detective-common");
-const { crawlUrls } = require("./crawler");
+const { crawlSitemap } = require("./crawler");
 
 exports.qualifyFiles = qualifyFiles;
 exports.parseTests = parseTests;
@@ -192,48 +192,56 @@ async function qualifyFiles({ config }) {
     shouldCrawl = config.crawl === true;
   }
 
-  // Collect URLs that should be crawled
-  const urlsToCrawl = [];
+  // Collect sitemap.xml URLs that should be crawled
+  const sitemapsToProcess = [];
   for (const source of sequence) {
     const isHttpUrl =
       typeof source === "string" &&
       (source.startsWith("http://") || source.startsWith("https://"));
+    
+    const isSitemapUrl = typeof source === "string" && source.endsWith("sitemap.xml");
 
-    if (isHttpUrl) {
+    if (isHttpUrl && isSitemapUrl) {
       // Determine if this specific URL should be crawled
       let crawlThisUrl = shouldCrawl;
       
       // If crawl config is not explicitly set, use protocol-based default
       if (config.crawl === undefined) {
-        crawlThisUrl = true; // HTTPS/HTTP URLs crawled by default
+        crawlThisUrl = true; // HTTPS/HTTP sitemap.xml URLs crawled by default
       }
 
       if (crawlThisUrl) {
-        urlsToCrawl.push(source);
+        sitemapsToProcess.push(source);
       }
     }
   }
 
-  // Perform crawling if there are URLs to crawl
-  if (urlsToCrawl.length > 0) {
-    log(config, "info", `Crawling ${urlsToCrawl.length} URL(s)...`);
+  // Process sitemaps if there are any to crawl
+  if (sitemapsToProcess.length > 0) {
+    log(config, "info", `Processing ${sitemapsToProcess.length} sitemap(s)...`);
     try {
-      const crawledUrls = await crawlUrls({
-        config,
-        initialUrls: urlsToCrawl,
-        log,
-      });
+      const allDiscoveredUrls = [];
+      
+      // Process each sitemap
+      for (const sitemapUrl of sitemapsToProcess) {
+        const discoveredUrls = await crawlSitemap({
+          config,
+          sitemapUrl,
+          log,
+        });
+        allDiscoveredUrls.push(...discoveredUrls);
+      }
       
       // Add newly discovered URLs to the sequence
       // Filter out URLs that were already in the initial sequence
-      const newUrls = crawledUrls.filter((url) => !sequence.includes(url));
-      log(config, "info", `Discovered ${newUrls.length} additional URL(s) via crawling`);
+      const newUrls = allDiscoveredUrls.filter((url) => !sequence.includes(url));
+      log(config, "info", `Discovered ${newUrls.length} additional URL(s) from sitemap(s)`);
       
       // Add new URLs after the input section but before cleanup
       const cleanupStartIndex = cleanup ? sequence.indexOf(cleanup[0]) : sequence.length;
       sequence.splice(cleanupStartIndex, 0, ...newUrls);
     } catch (error) {
-      log(config, "error", `Crawling failed: ${error.message}`);
+      log(config, "error", `Sitemap processing failed: ${error.message}`);
     }
   }
 
