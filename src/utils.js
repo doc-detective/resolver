@@ -11,6 +11,7 @@ const {
   transformToSchemaKey,
   readFile,
 } = require("doc-detective-common");
+const { crawlSitemap } = require("./crawler");
 
 exports.qualifyFiles = qualifyFiles;
 exports.parseTests = parseTests;
@@ -183,6 +184,52 @@ async function qualifyFiles({ config }) {
   sequence = sequence.concat(input);
   const cleanup = config.afterAll;
   if (cleanup) sequence = sequence.concat(cleanup);
+
+  // Collect sitemap.xml URLs that should be crawled
+  const sitemapsToProcess = [];
+  for (const source of sequence) {
+    const isHttpUrl =
+      typeof source === "string" &&
+      (source.startsWith("http://") || source.startsWith("https://"));
+    
+    const isSitemapUrl = typeof source === "string" && source.endsWith("sitemap.xml");
+
+    if (isHttpUrl && isSitemapUrl) {
+      // Check if crawling is enabled (defaults to false in config)
+      if (config.crawl === true) {
+        sitemapsToProcess.push(source);
+      }
+    }
+  }
+
+  // Process sitemaps if there are any to crawl
+  if (sitemapsToProcess.length > 0) {
+    log(config, "info", `Processing ${sitemapsToProcess.length} sitemap(s)...`);
+    try {
+      const allDiscoveredUrls = [];
+      
+      // Process each sitemap
+      for (const sitemapUrl of sitemapsToProcess) {
+        const discoveredUrls = await crawlSitemap({
+          config,
+          sitemapUrl,
+          log,
+        });
+        allDiscoveredUrls.push(...discoveredUrls);
+      }
+      
+      // Add newly discovered URLs to the sequence
+      // Filter out URLs that were already in the initial sequence
+      const newUrls = allDiscoveredUrls.filter((url) => !sequence.includes(url));
+      log(config, "info", `Discovered ${newUrls.length} additional URL(s) from sitemap(s)`);
+      
+      // Add new URLs after the input section but before cleanup
+      const cleanupStartIndex = cleanup ? sequence.indexOf(cleanup[0]) : sequence.length;
+      sequence.splice(cleanupStartIndex, 0, ...newUrls);
+    } catch (error) {
+      log(config, "error", `Sitemap processing failed: ${error.message}`);
+    }
+  }
 
   for (let source of sequence) {
     log(config, "debug", `source: ${source}`);
