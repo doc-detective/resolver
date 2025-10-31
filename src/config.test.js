@@ -530,7 +530,7 @@ describe("crawl config field", function () {
     expect(result.crawl).to.equal(false);
   });
 
-  it("should handle missing crawl field", async function () {
+  it("should default crawl field to false when not specified", async function () {
     const inputConfig = { 
       input: ["https://example.com"], 
       logLevel: "info",
@@ -539,6 +539,6 @@ describe("crawl config field", function () {
     
     const result = await setConfig({ config: inputConfig });
     
-    expect(result.crawl).to.be.undefined;
+    expect(result.crawl).to.equal(false);
   });
 });

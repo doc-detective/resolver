@@ -185,13 +185,6 @@ async function qualifyFiles({ config }) {
   const cleanup = config.afterAll;
   if (cleanup) sequence = sequence.concat(cleanup);
 
-  // Determine if crawling is enabled
-  let shouldCrawl = false;
-  if (config.crawl !== undefined) {
-    // Explicit config setting takes precedence
-    shouldCrawl = config.crawl === true;
-  }
-
   // Collect sitemap.xml URLs that should be crawled
   const sitemapsToProcess = [];
   for (const source of sequence) {
@@ -202,15 +195,8 @@ async function qualifyFiles({ config }) {
     const isSitemapUrl = typeof source === "string" && source.endsWith("sitemap.xml");
 
     if (isHttpUrl && isSitemapUrl) {
-      // Determine if this specific URL should be crawled
-      let crawlThisUrl = shouldCrawl;
-      
-      // If crawl config is not explicitly set, use protocol-based default
-      if (config.crawl === undefined) {
-        crawlThisUrl = true; // HTTPS/HTTP sitemap.xml URLs crawled by default
-      }
-
-      if (crawlThisUrl) {
+      // Check if crawling is enabled (defaults to false in config)
+      if (config.crawl === true) {
         sitemapsToProcess.push(source);
       }
     }

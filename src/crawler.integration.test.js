@@ -59,9 +59,10 @@ describe("crawler integration", function () {
     sinon.restore();
   });
 
-  it("should process sitemap.xml URLs by default", async function () {
+  it("should process sitemap.xml URLs when crawl is true", async function () {
     const config = {
       input: ["https://example.com/sitemap.xml"],
+      crawl: true,
       logLevel: "info",
       fileTypes: [],
     };
