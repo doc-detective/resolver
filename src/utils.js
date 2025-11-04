@@ -154,7 +154,11 @@ async function fetchFile(fileURL) {
     } else {
       response.data = response.data.toString();
     }
-    const fileName = fileURL.split("/").pop();
+    let fileName = fileURL.split("/").pop();
+    // If fileName doesn't have an extension, add ".html"
+    if (!path.extname(fileName)) {
+      fileName += ".html";
+    }
     const hash = crypto.createHash("md5").update(response.data).digest("hex");
     const filePath = `${os.tmpdir}/doc-detective/${hash}_${fileName}`;
     // If doc-detective temp directory doesn't exist, create it
