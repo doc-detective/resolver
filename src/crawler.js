@@ -73,12 +73,19 @@ async function crawlSitemap({ config, sitemapUrl, log }) {
   
   // Fetch the sitemap content
   let content;
+  let finalUrl = sitemapUrl;
   try {
     const response = await axios.get(sitemapUrl, {
       timeout: 30000,
       maxRedirects: 5,
     });
     content = response.data;
+    
+    // Use the final URL after redirects for origin comparison
+    if (response.request && response.request.res && response.request.res.responseUrl) {
+      finalUrl = response.request.res.responseUrl;
+      logger(config, "debug", `Sitemap redirected to: ${finalUrl}`);
+    }
   } catch (error) {
     logger(config, "warn", `Failed to fetch sitemap ${sitemapUrl}: ${error.message}`);
     return discoveredUrls;
@@ -88,9 +95,9 @@ async function crawlSitemap({ config, sitemapUrl, log }) {
   if (typeof content === "string") {
     const extractedUrls = extractXmlSitemapUrls(content);
     
-    // Filter URLs to only include same-origin URLs
+    // Filter URLs to only include same-origin URLs (using final URL after redirects)
     for (const url of extractedUrls) {
-      if (isSameOrigin(url, sitemapUrl)) {
+      if (isSameOrigin(url, finalUrl)) {
         discoveredUrls.push(url);
       } else {
         logger(config, "debug", `Skipping cross-origin URL: ${url}`);
