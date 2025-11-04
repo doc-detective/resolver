@@ -3,7 +3,7 @@
  * Main export for static documentation analysis
  */
 
-const { analyzeDocument } = require('./analyzer');
+const { analyzeDocument } = require('./analyzer/index');
 const { schemas } = require('doc-detective-common');
 
 /**
