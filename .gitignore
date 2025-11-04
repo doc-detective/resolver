@@ -108,3 +108,7 @@ dist
 
 # Browser snapshots
 browser-snapshots
+
+# Example output files
+extracted-actions.json
+
