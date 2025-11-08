@@ -117,6 +117,9 @@ async function main() {
     case 'openai':
       apiKey = process.env.OPENAI_API_KEY;
       break;
+    case 'local':
+      apiKey = 'local-testing-key';  // Any value works for local
+      break;
     default:
       console.error(`Unknown provider: ${provider}`);
       process.exit(1);
@@ -128,6 +131,8 @@ async function main() {
     console.error(`  - ANTHROPIC_API_KEY for Anthropic`);
     console.error(`  - GOOGLE_GENERATIVE_AI_API_KEY for Google`);
     console.error(`  - OPENAI_API_KEY for OpenAI`);
+    console.error(`\nOr use the local provider (requires local LLM server):`);
+    console.error(`  node src/analyzer/integration.test.js provider=local`);
     console.error(`\nExample:`);
     console.error(`  ANTHROPIC_API_KEY=sk-... node src/analyzer/integration.test.js\n`);
     process.exit(1);

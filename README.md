@@ -82,6 +82,7 @@ Analyzes documentation and extracts action steps using AI.
 - **Anthropic** (Claude)
 - **Google** (Gemini)
 - **OpenAI** (GPT-4)
+- **Local** (llama.cpp with Qwen2.5-0.5B) - For testing without API keys
 
 #### Configuration
 
@@ -89,13 +90,37 @@ Analyzes documentation and extracts action steps using AI.
 const { analyze } = require("doc-detective-resolver");
 
 const config = {
-  provider: 'anthropic',  // or 'google', 'openai'
+  provider: 'anthropic',  // or 'google', 'openai', 'local'
   apiKey: process.env.ANTHROPIC_API_KEY,
   model: 'claude-sonnet-4-20250514',  // optional, uses provider default
   temperature: 0.3,  // optional, default 0.3
   maxTokens: 4000    // optional, default 4000
 };
 ```
+
+#### Local Testing (No API Key Required)
+
+For development and testing without paid API keys, you can use a local LLM:
+
+```bash
+# One-time setup
+cd local-llm
+./setup.sh
+
+# Start the server (in a separate terminal)
+./start-server.sh
+```
+
+Then use `provider: 'local'`:
+
+```javascript
+const result = await analyze(documentation, {
+  provider: 'local',
+  apiKey: 'local-testing-key'  // Any value works
+});
+```
+
+See [local-llm/README.md](local-llm/README.md) for details.
 
 #### Basic Usage
 

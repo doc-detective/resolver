@@ -112,3 +112,8 @@ browser-snapshots
 # Example output files
 extracted-actions.json
 
+# Local LLM files
+local-llm/llama.cpp/
+local-llm/models/
+
+

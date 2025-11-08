@@ -10,8 +10,9 @@ const { openai } = require('@ai-sdk/openai');
 /**
  * Creates an LLM provider instance based on configuration
  * @param {Object} config - Analyzer configuration
- * @param {string} config.provider - Provider name ('anthropic', 'google', or 'openai')
+ * @param {string} config.provider - Provider name ('anthropic', 'google', 'openai', or 'local')
  * @param {string} [config.model] - Model name (uses default if not specified)
+ * @param {string} [config.baseURL] - Base URL for local provider (default: http://localhost:8080/v1)
  * @returns {Object} Provider instance
  */
 function createProvider(config) {
@@ -27,6 +28,12 @@ function createProvider(config) {
     case 'openai':
       return openai(config.model || 'gpt-4o', {
         apiKey: config.apiKey
+      });
+    case 'local':
+      // Local llama.cpp server with OpenAI-compatible API
+      return openai(config.model || 'local-model', {
+        apiKey: config.apiKey || 'local-testing-key',
+        baseURL: config.baseURL || 'http://localhost:8080/v1'
       });
     default:
       throw new Error(`Unsupported provider: ${config.provider}`);
