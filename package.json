@@ -4,7 +4,7 @@
   "description": "Detect and resolve docs into Doc Detective tests.",
   "main": "src/index.js",
   "scripts": {
-    "test": "mocha 'src/**/*.test.js'",
+    "test": "mocha \"src/**/*.test.js\"",
     "dev": "node dev"
   },
   "repository": {
