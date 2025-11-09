@@ -6,12 +6,33 @@ This directory contains scripts to set up a local LLM server for testing the Doc
 
 The setup uses:
 - **llama.cpp**: High-performance LLM inference engine
+- **CMake build system**: Following Unsloth guide recommendations
 - **Qwen2.5-0.5B-Instruct**: Small, efficient language model (~350MB quantized)
 - **OpenAI-compatible API**: Works seamlessly with existing analyzer code
 
 ## Quick Start
 
-### 1. Initial Setup
+### 1. Prerequisites
+
+Ensure you have the required dependencies:
+
+**Linux/Ubuntu:**
+```bash
+sudo apt update
+sudo apt install build-essential cmake curl git -y
+```
+
+**macOS:**
+```bash
+brew install cmake curl git
+```
+
+**Windows:**
+- Install [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) with C++ development tools
+- Install [CMake](https://cmake.org/download/)
+- Install Git
+
+### 2. Initial Setup
 
 Run the setup script to download and build everything:
 
@@ -22,10 +43,10 @@ cd local-llm
 
 This will:
 - Clone llama.cpp repository
-- Build the llama-server executable
+- Build the llama-server executable using CMake (CPU-optimized)
 - Download the Qwen2.5-0.5B-Instruct model (Q4_K_M quantized, ~350MB)
 
-### 2. Start the Server
+### 3. Start the Server
 
 ```bash
 ./start-server.sh
@@ -33,7 +54,7 @@ This will:
 
 The server will start on `http://localhost:8080` with an OpenAI-compatible API.
 
-### 3. Use with Analyzer
+### 4. Use with Analyzer
 
 In your code, specify `provider: 'local'`:
 
@@ -49,22 +70,79 @@ const result = await analyze(
 );
 ```
 
+## GPU Support (Optional)
+
+For faster inference with NVIDIA GPU (CUDA), rebuild with GPU support:
+
+```bash
+cd local-llm/llama.cpp
+
+# Clean previous build
+rm -rf build
+
+# Build with CUDA support
+cmake -B build \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DGGML_CUDA=ON \
+    -DLLAMA_CURL=ON \
+    -DCMAKE_BUILD_TYPE=Release
+
+cmake --build build --config Release -j --target llama-server
+```
+
+Requirements:
+- NVIDIA GPU with CUDA support
+- CUDA toolkit installed
+- Compatible GPU drivers
+
+## Advanced Configuration
+
+### Using Larger Models
+
+To use larger Qwen models for better quality:
+
+1. **Download a larger model** (e.g., Qwen2.5-1.5B or Qwen2.5-3B):
+```bash
+cd local-llm/models
+
+# Qwen2.5-1.5B (~1GB)
+wget https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf
+
+# Qwen2.5-3B (~2GB)
+wget https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf
+```
+
+2. **Update start-server.sh** to point to the new model file.
+
+### Build Options
+
+The setup script uses these CMake options (following Unsloth guide):
+
+- `-DBUILD_SHARED_LIBS=OFF`: Static linking for better portability
+- `-DGGML_CUDA=OFF`: CPU-only (change to `ON` for GPU)
+- `-DLLAMA_CURL=ON`: Enable model download via curl
+- `-DCMAKE_BUILD_TYPE=Release`: Optimized release build
+
+For more options, see [llama.cpp build documentation](https://github.com/ggerganov/llama.cpp/blob/master/docs/build.md).
+
 ## System Requirements
 
-- **CPU**: x86_64 or ARM64 processor
+- **CPU**: x86_64 or ARM64 processor (multi-core recommended)
 - **RAM**: At least 2GB free (model uses ~1GB in memory)
-- **Disk**: ~1GB for llama.cpp + model
+- **Disk**: ~1.5GB for llama.cpp + model + build artifacts
 - **OS**: Linux, macOS, or WSL2 on Windows
 
 ## Architecture
 
 ```
 local-llm/
-├── setup.sh           # Downloads and builds everything
-├── start-server.sh    # Starts the LLM server
-├── llama.cpp/         # (created by setup.sh)
-│   └── llama-server   # Server executable
-└── models/            # (created by setup.sh)
+├── setup.sh              # Downloads and builds everything (CMake)
+├── start-server.sh       # Starts the LLM server
+├── llama.cpp/            # (created by setup.sh)
+│   └── build/            # CMake build directory
+│       └── bin/
+│           └── llama-server  # Server executable
+└── models/               # (created by setup.sh)
     └── qwen2.5-0.5b-instruct-q4_k_m.gguf
 ```
 

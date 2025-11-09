@@ -13,12 +13,15 @@ if [ ! -d "llama.cpp" ]; then
 fi
 echo "✓ llama.cpp directory exists"
 
-# Check if llama-server is built
-if [ ! -f "llama.cpp/llama-server" ]; then
+# Check if llama-server is built (check both CMake and make locations)
+if [ -f "llama.cpp/build/bin/llama-server" ]; then
+    echo "✓ llama-server executable exists (CMake build)"
+elif [ -f "llama.cpp/llama-server" ]; then
+    echo "✓ llama-server executable exists (make build)"
+else
     echo "❌ llama-server not built. Run ./setup.sh first."
     exit 1
 fi
-echo "✓ llama-server executable exists"
 
 # Check if model exists
 if [ ! -f "models/qwen2.5-0.5b-instruct-q4_k_m.gguf" ]; then

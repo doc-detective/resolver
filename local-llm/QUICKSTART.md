@@ -5,7 +5,7 @@ This is a quick reference for using the local LLM testing solution.
 ## TL;DR
 
 ```bash
-# Setup (one time)
+# Setup (one time) - requires CMake
 cd local-llm && ./setup.sh
 
 # Start server (in separate terminal)
@@ -15,17 +15,25 @@ cd local-llm && ./setup.sh
 node ../examples/analyzer-example-local.js
 ```
 
+## Prerequisites
+
+- **CMake**: Required for building llama.cpp
+  - Ubuntu/Debian: `sudo apt install cmake`
+  - macOS: `brew install cmake`
+  - Windows: Install from https://cmake.org/download/
+
 ## What Gets Installed
 
-- **llama.cpp** (~50MB): Efficient LLM inference engine
+- **llama.cpp** (~50MB): Efficient LLM inference engine (built with CMake)
 - **Qwen2.5-0.5B** (~350MB): Small instruction-tuned model
-- **Total**: ~400MB disk space, ~1GB RAM when running
+- **Build artifacts** (~50MB): CMake build directory
+- **Total**: ~450MB disk space, ~1GB RAM when running
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `./setup.sh` | Download and build everything (run once) |
+| `./setup.sh` | Download and build everything with CMake (run once) |
 | `./start-server.sh` | Start the LLM server on port 8080 |
 | `./test-setup.sh` | Verify setup is correct |
 
