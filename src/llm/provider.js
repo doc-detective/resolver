@@ -19,7 +19,7 @@ function createProvider(config) {
   switch (config.provider) {
     case "anthropic":
       const anthropic = createAnthropic({
-        apiKey: config.apiKey,
+        apiKey: config.apiKey || process.env.ANTHROPIC_API_KEY,
       });
       return anthropic(config.model || "claude-haiku-4-5-20251001", {});
     case "google":
