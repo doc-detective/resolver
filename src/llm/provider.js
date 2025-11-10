@@ -1,11 +1,11 @@
 /**
  * LLM provider module for interacting with various AI providers
  */
-
-const { generateText } = require('ai');
-const { anthropic } = require('@ai-sdk/anthropic');
-const { google } = require('@ai-sdk/google');
-const { openai } = require('@ai-sdk/openai');
+const { schemas } = require("doc-detective-common");
+const { generateText, generateObject, jsonSchema } = require("ai");
+const { createAnthropic } = require("@ai-sdk/anthropic");
+const { google } = require("@ai-sdk/google");
+const { openai } = require("@ai-sdk/openai");
 
 /**
  * Creates an LLM provider instance based on configuration
@@ -17,23 +17,24 @@ const { openai } = require('@ai-sdk/openai');
  */
 function createProvider(config) {
   switch (config.provider) {
-    case 'anthropic':
-      return anthropic(config.model || 'claude-sonnet-4-20250514', {
-        apiKey: config.apiKey
+    case "anthropic":
+      const anthropic = createAnthropic({
+        apiKey: config.apiKey,
       });
-    case 'google':
-      return google(config.model || 'gemini-2.0-flash-exp', {
-        apiKey: config.apiKey
+      return anthropic(config.model || "claude-haiku-4-5-20251001", {});
+    case "google":
+      return google(config.model || "gemini-2.0-flash-exp", {
+        apiKey: config.apiKey,
       });
-    case 'openai':
-      return openai(config.model || 'gpt-4o', {
-        apiKey: config.apiKey
+    case "openai":
+      return openai(config.model || "gpt-4o", {
+        apiKey: config.apiKey,
       });
-    case 'local':
+    case "local":
       // Local llama.cpp server with OpenAI-compatible API
-      return openai(config.model || 'local-model', {
-        apiKey: config.apiKey || 'local-testing-key',
-        baseURL: config.baseURL || 'http://localhost:8080/v1'
+      return openai(config.model || "local-model", {
+        apiKey: config.apiKey || "local-testing-key",
+        baseURL: config.baseURL || "http://localhost:8080/v1",
       });
     default:
       throw new Error(`Unsupported provider: ${config.provider}`);
@@ -53,33 +54,40 @@ function createProvider(config) {
  */
 async function analyzeSegment(segment, prompt, config) {
   const startTime = Date.now();
-  
+
   const model = createProvider(config);
-  
+
   try {
-    const result = await generateText({
+    // const result = await generateText({
+    //   model,
+    //   prompt,
+    //   temperature: config.temperature ?? 0.3,
+    //   maxTokens: config.maxTokens ?? 4000,
+    // });
+    const schema = jsonSchema({
+      type: "object",
+      properties: {
+        steps: {
+          type: "array",
+          description: "Array of Doc Detective steps",
+          items: schemas.step_v3,
+        },
+      },
+    });
+    const result = await generateObject({
       model,
       prompt,
       temperature: config.temperature ?? 0.3,
       maxTokens: config.maxTokens ?? 4000,
+      schema,
     });
-    
+
     const latencyMs = Date.now() - startTime;
-    
+
     // Parse JSON response
     let actions = [];
     try {
-      // Extract JSON from response (handle cases where LLM adds extra text)
-      let jsonText = result.text.trim();
-      
-      // Try to find JSON array in the response
-      const jsonMatch = jsonText.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (jsonMatch) {
-        jsonText = jsonMatch[0];
-      }
-      
-      actions = JSON.parse(jsonText);
-      
+      actions = result.object.steps;
       // Ensure we have an array
       if (!Array.isArray(actions)) {
         actions = [actions];
@@ -90,7 +98,7 @@ async function analyzeSegment(segment, prompt, config) {
       // Return empty actions array instead of throwing
       actions = [];
     }
-    
+
     return {
       actions,
       metadata: {
@@ -107,5 +115,5 @@ async function analyzeSegment(segment, prompt, config) {
 
 module.exports = {
   createProvider,
-  analyzeSegment
+  analyzeSegment,
 };

@@ -201,31 +201,6 @@ function detectActionTypes(paragraph) {
 }
 
 /**
- * Gets relevant action schemas based on paragraph content
- * @param {string} paragraph - The paragraph content
- * @param {Object} allSchemas - All available schemas
- * @returns {string} Formatted schema documentation
- */
-function getRelevantSchemas(paragraph, allSchemas) {
-  const detectedTypes = detectActionTypes(paragraph);
-  
-  let schemaDoc = '\n\nRELEVANT ACTION SCHEMAS:\n\n';
-  
-  for (const actionType of detectedTypes) {
-    const schemaKey = `${actionType}_v3`;
-    const schema = allSchemas[schemaKey];
-    
-    if (schema) {
-      schemaDoc += `${actionType} action schema:\n`;
-      schemaDoc += JSON.stringify(schema, null, 2);
-      schemaDoc += '\n\n';
-    }
-  }
-  
-  return schemaDoc;
-}
-
-/**
  * Builds the complete prompt for a segment
  * @param {Object} segment - The document segment
  * @param {Object} schemas - All available schemas
@@ -234,7 +209,7 @@ function getRelevantSchemas(paragraph, allSchemas) {
 function buildPrompt(segment, schemas) {
   const corePrompt = buildCorePrompt();
   const staticPrompt = buildStaticModePrompt();
-  const relevantSchemas = getRelevantSchemas(segment.content, schemas);
+  const relevantSchemas = schemas.step_v3;
   
   return `${corePrompt}
 
@@ -245,13 +220,12 @@ ${relevantSchemas}
 DOCUMENT SEGMENT TO ANALYZE (${segment.type}, line ${segment.lineNumber}):
 ${segment.content}
 
-Now extract all action steps from this segment. Return ONLY a JSON array of action objects.`;
+Now extract all action steps from this segment. Return ONLY a JSON array of step objects.`;
 }
 
 module.exports = {
   buildCorePrompt,
   buildStaticModePrompt,
-  getRelevantSchemas,
   buildPrompt,
   detectActionTypes
 };
