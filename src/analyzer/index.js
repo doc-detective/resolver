@@ -76,15 +76,15 @@ async function analyzeDocument(document, config, schemas) {
       const { actions, metadata } = await analyzeSegment(segment, prompt, config);
       
       // Tag actions with source
-      const taggedActions = tagActionsWithSource(actions, segment);
+      // const taggedActions = tagActionsWithSource(actions, segment);
       
       results.push({
-        actions: taggedActions,
+        actions,
         segment,
         metadata,
       });
       
-      allActions.push(...taggedActions);
+      allActions.push(...actions);
     } catch (error) {
       console.error(`Error analyzing segment at line ${segment.lineNumber}: ${error.message}`);
       // Continue with other segments
@@ -103,14 +103,14 @@ async function analyzeDocument(document, config, schemas) {
   
   // 3. Post-process actions
   const enhancedActions = addDefensiveActions(allActions);
-  
-  // 4. Validate actions
+
+  // 4. Validate steps
   const { valid, invalid } = validateActions(enhancedActions, schemas);
   
   if (invalid.length > 0) {
-    console.warn(`${invalid.length} actions failed validation`);
+    console.warn(`${invalid.length} steps failed validation`);
     invalid.forEach((item, idx) => {
-      console.warn(`  [${idx + 1}] Action: ${item.action?.action}, Error:`, item.error);
+      console.warn(`  [${idx + 1}] Step: ${item.step?.action}, Error:`, item.error);
     });
   }
   
@@ -125,7 +125,7 @@ async function analyzeDocument(document, config, schemas) {
   };
   
   return {
-    actions: valid,
+    steps: valid,
     segments: results,
     summary,
   };
