@@ -69,7 +69,7 @@ async function analyzeSegment(segment, prompt, config) {
       properties: {
         steps: {
           type: "array",
-          description: "Array of Doc Detective steps",
+          description: "Array of Doc Detective v3 steps",
           items: schemas.step_v3,
         },
       },
@@ -77,9 +77,12 @@ async function analyzeSegment(segment, prompt, config) {
     const result = await generateObject({
       model,
       prompt,
-      temperature: config.temperature ?? 0.3,
+      temperature: config.temperature ?? 0.1,
       maxTokens: config.maxTokens ?? 4000,
-      schema,
+      output: "object",
+      mode: "json",
+      schema: schema,
+      schemaDescription: "An array of Doc Detective v3 steps.",
     });
 
     const latencyMs = Date.now() - startTime;
@@ -87,6 +90,18 @@ async function analyzeSegment(segment, prompt, config) {
     // Parse JSON response
     let actions = [];
     try {
+      if (!result.object || !result.object.steps) {
+        throw new Error("No 'steps' field in LLM response object");
+      }
+      if (typeof result.object.steps === "string") {
+        try {
+          result.object.steps = JSON.parse(result.object.steps);
+        } catch (parseError) {
+          throw new Error(
+            `Failed to parse 'steps' field as JSON: ${parseError.message}`
+          );
+        }
+      }
       actions = result.object.steps;
       // Ensure we have an array
       if (!Array.isArray(actions)) {

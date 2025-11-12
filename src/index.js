@@ -10,6 +10,9 @@ exports.detectAndResolveTests = detectAndResolveTests;
 // Export analyzer API
 exports.analyze = require("./analyzer-api").analyze;
 
+// Export dynamic analyzer
+exports.dynamicAnalyze = require("./analyzer/dynamic-analyzer").dynamicAnalyze;
+
 // const supportMessage = `
 // ##########################################################################
 // # Thanks for using Doc Detective! If this project was helpful to you,    #

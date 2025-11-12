@@ -115,14 +115,16 @@ function validateActions(steps, schemas) {
 
   for (const step of steps) {
     const schemaKey = `step_v3`;
-    const schema = schemas[schemaKey];
+    const source = step._source;
+    delete step._source; // Remove source before validation
     const validationResult = validate({ schemaKey, object: step });
 
     // Create a wrapper object that matches the expected validation format
     const validationObject = {};
 
     if (validationResult.valid) {
-      valid.push(step);
+      const newStep = { ...validationResult.object, _source: source };
+      valid.push(newStep);
     } else {
       invalid.push({
         step,

@@ -76,15 +76,15 @@ async function analyzeDocument(document, config, schemas) {
       const { actions, metadata } = await analyzeSegment(segment, prompt, config);
       
       // Tag actions with source
-      // const taggedActions = tagActionsWithSource(actions, segment);
+      const taggedActions = tagActionsWithSource(actions, segment);
       
       results.push({
-        actions,
+        actions: taggedActions,
         segment,
         metadata,
       });
       
-      allActions.push(...actions);
+      allActions.push(...taggedActions);
     } catch (error) {
       console.error(`Error analyzing segment at line ${segment.lineNumber}: ${error.message}`);
       // Continue with other segments

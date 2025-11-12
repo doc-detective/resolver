@@ -1,0 +1,297 @@
+/**
+ * User interaction utilities for dynamic analysis.
+ * Prompts users for input when confidence is low or additional information is needed.
+ */
+
+const inquirer = require('inquirer');
+const path = require('path');
+
+/**
+ * Prompts the user with a question and optional choices.
+ * 
+ * @param {string} message - Human-friendly message to display
+ * @param {Object} options - Configuration options
+ * @param {Array<string>} options.choices - Array of choice strings (for list prompts)
+ * @param {string} options.type - Prompt type: 'confirm', 'list', 'input' (default: 'confirm')
+ * @param {boolean} options.showJson - Whether to show JSON representation of context
+ * @param {Object} options.jsonContext - JSON object to display if showJson is true
+ * @returns {Promise<string|boolean>} User's response
+ */
+async function queryUser(message, options = {}) {
+  const {
+    choices,
+    type = 'confirm',
+    showJson = false,
+    jsonContext = null,
+    defaultValue = null
+  } = options;
+
+  console.log('\n' + '='.repeat(80));
+  console.log('USER INPUT REQUIRED');
+  console.log('='.repeat(80));
+  console.log(`\n${message}\n`);
+
+  if (showJson && jsonContext) {
+    console.log('\nContext (JSON):');
+    console.log(JSON.stringify(jsonContext, null, 2));
+    console.log('');
+  }
+
+  const promptConfig = {
+    type,
+    name: 'response',
+    message: 'Your choice:',
+  };
+
+  if (type === 'list' && choices) {
+    promptConfig.choices = choices;
+    if (defaultValue) {
+      promptConfig.default = defaultValue;
+    }
+  } else if (type === 'confirm') {
+    promptConfig.message = message;
+    promptConfig.default = defaultValue !== null ? defaultValue : true;
+  } else if (type === 'input') {
+    if (defaultValue) {
+      promptConfig.default = defaultValue;
+    }
+  }
+
+  const answer = await inquirer.prompt([promptConfig]);
+  return answer.response;
+}
+
+/**
+ * Prompts user for low-confidence step decisions.
+ * 
+ * @param {Object} step - The proposed step with low confidence
+ * @param {number} confidence - Confidence score (0-1)
+ * @param {Object} browserContext - Current browser context
+ * @returns {Promise<Object>} Result object with action and potentially modified step
+ * @returns {string} .action - 'continue', 'modify', 'skip', 'abort'
+ * @returns {Object} .step - Modified step if action is 'continue' or 'modify'
+ */
+async function queryLowConfidenceStep(step, confidence, browserContext) {
+  console.log('\n' + '⚠'.repeat(40));
+  console.log('LOW CONFIDENCE STEP DETECTED');
+  console.log('⚠'.repeat(40));
+  console.log(`\nConfidence: ${(confidence * 100).toFixed(1)}%`);
+  console.log(`Proposed Step: ${step.description || JSON.stringify(step, null, 2)}\n`);
+  
+  const action = await queryUser(
+    'The analyzer has low confidence in this step. What would you like to do?',
+    {
+      type: 'list',
+      choices: [
+        'Continue with this step',
+        'Show me the JSON and browser context',
+        'Skip this step',
+        'Abort the analysis'
+      ]
+    }
+  );
+
+  if (action === 'Show me the JSON and browser context') {
+    console.log('\nProposed Step (JSON):');
+    console.log(JSON.stringify(step, null, 2));
+    console.log('\nBrowser Context:');
+    console.log(JSON.stringify(browserContext, null, 2));
+    
+    // Ask again after showing details
+    const secondAction = await queryUser(
+      'What would you like to do with this step?',
+      {
+        type: 'list',
+        choices: [
+          'Continue with this step',
+          'Skip this step',
+          'Abort the analysis'
+        ]
+      }
+    );
+    
+    if (secondAction === 'Continue with this step') {
+      return { action: 'continue', step };
+    } else if (secondAction === 'Skip this step') {
+      return { action: 'skip' };
+    } else {
+      return { action: 'abort' };
+    }
+  } else if (action === 'Continue with this step') {
+    return { action: 'continue', step };
+  } else if (action === 'Skip this step') {
+    return { action: 'skip' };
+  } else {
+    return { action: 'abort' };
+  }
+}
+
+/**
+ * Prompts user for credential information and provides .env file instructions.
+ * 
+ * @param {Array<string>} credentialNames - Array of credential names needed (e.g., ['username', 'password'])
+ * @param {string} envFilePath - Path to .env file where credentials should be stored
+ * @returns {Promise<Object>} Result object with placeholders and instructions
+ * @returns {Object} .placeholders - Map of credential names to placeholder variables (e.g., {username: '$USERNAME'})
+ * @returns {string} .envFilePath - Path to .env file
+ * @returns {Array<string>} .envInstructions - Lines to add to .env file
+ */
+async function queryCredentials(credentialNames, envFilePath = '.env') {
+  console.log('\n' + '🔐'.repeat(40));
+  console.log('CREDENTIALS REQUIRED');
+  console.log('🔐'.repeat(40));
+  console.log(`\nThe documentation references credentials: ${credentialNames.join(', ')}`);
+  console.log('\nTo handle these securely, the analyzer will:');
+  console.log('1. Use placeholder variables in the test (e.g., $USERNAME, $PASSWORD)');
+  console.log('2. Add a loadVariables step to load from your .env file');
+  console.log('3. Provide instructions for populating your .env file\n');
+
+  // Generate placeholder variables
+  const placeholders = {};
+  const envInstructions = [];
+  
+  credentialNames.forEach(name => {
+    const varName = name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    placeholders[name] = `$${varName}`;
+    envInstructions.push(`${varName}=your_${name}_here`);
+  });
+
+  console.log('Placeholders that will be used:');
+  Object.entries(placeholders).forEach(([name, placeholder]) => {
+    console.log(`  ${name} -> ${placeholder}`);
+  });
+  console.log('');
+
+  const proceed = await queryUser(
+    'Do you want to proceed with placeholder credentials?',
+    { type: 'confirm', defaultValue: true }
+  );
+
+  if (!proceed) {
+    return { action: 'abort' };
+  }
+
+  // Provide .env file instructions
+  console.log('\n' + '-'.repeat(80));
+  console.log(`INSTRUCTIONS: Add these lines to your ${envFilePath} file:`);
+  console.log('-'.repeat(80));
+  envInstructions.forEach(line => {
+    console.log(line);
+  });
+  console.log('-'.repeat(80));
+  console.log('\nReplace the placeholder values with your actual credentials.');
+  console.log('The .env file should be in your project root or test directory.\n');
+
+  return {
+    action: 'continue',
+    placeholders,
+    envFilePath: path.resolve(envFilePath),
+    envInstructions
+  };
+}
+
+/**
+ * Asks user whether to continue after a step failure.
+ * 
+ * @param {Object} step - The failed step
+ * @param {Object} result - The failure result
+ * @param {number} retryCount - Number of retries already attempted
+ * @param {number} maxRetries - Maximum retries allowed
+ * @returns {Promise<string>} Action: 'retry', 'skip', 'abort'
+ */
+async function queryStepFailure(step, result, retryCount, maxRetries) {
+  console.log('\n' + '❌'.repeat(40));
+  console.log('STEP EXECUTION FAILED');
+  console.log('❌'.repeat(40));
+  console.log(`\nFailed Step: ${step.description || JSON.stringify(step)}`);
+  console.log(`Failure Reason: ${result.description || result.resultDescription || 'Unknown'}`);
+  console.log(`Retry Attempt: ${retryCount} of ${maxRetries}\n`);
+
+  if (retryCount >= maxRetries) {
+    const action = await queryUser(
+      'Maximum retries reached. What would you like to do?',
+      {
+        type: 'list',
+        choices: [
+          'Skip this step and continue',
+          'Abort the analysis'
+        ]
+      }
+    );
+    
+    return action === 'Skip this step and continue' ? 'skip' : 'abort';
+  }
+
+  const action = await queryUser(
+    'What would you like to do?',
+    {
+      type: 'list',
+      choices: [
+        'Retry with adjustments',
+        'Skip this step and continue',
+        'Abort the analysis'
+      ]
+    }
+  );
+
+  if (action === 'Retry with adjustments') {
+    return 'retry';
+  } else if (action === 'Skip this step and continue') {
+    return 'skip';
+  } else {
+    return 'abort';
+  }
+}
+
+/**
+ * Prompts user to confirm or modify the initial URL for navigation.
+ * 
+ * @param {string} suggestedUrl - URL suggested by the analyzer
+ * @param {string} instruction - Original instruction text
+ * @returns {Promise<Object>} Result with confirmed/modified URL
+ * @returns {string} .action - 'continue' or 'abort'
+ * @returns {string} .url - Confirmed or modified URL
+ */
+async function queryInitialUrl(suggestedUrl, instruction) {
+  console.log('\n' + '🌐'.repeat(40));
+  console.log('INITIAL URL REQUIRED');
+  console.log('🌐'.repeat(40));
+  console.log(`\nInstruction: "${instruction}"`);
+  console.log(`Suggested URL: ${suggestedUrl || 'none detected'}\n`);
+
+  if (!suggestedUrl) {
+    let url = await queryUser(
+      'Enter the starting URL for this test:',
+      { type: 'input' }
+    );
+    // If url doesn't begin with http/https, add https://
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    return { action: 'continue', url };
+  }
+
+  const useUrl = await queryUser(
+    `Use suggested URL: ${suggestedUrl}?`,
+    { type: 'confirm', defaultValue: true }
+  );
+
+  if (useUrl) {
+    return { action: 'continue', url: suggestedUrl };
+  }
+
+  const url = await queryUser(
+    'Please enter the correct starting URL:',
+    { type: 'input', defaultValue: suggestedUrl }
+  );
+
+  return { action: 'continue', url };
+}
+
+module.exports = {
+  queryUser,
+  queryLowConfidenceStep,
+  queryCredentials,
+  queryStepFailure,
+  queryInitialUrl
+};

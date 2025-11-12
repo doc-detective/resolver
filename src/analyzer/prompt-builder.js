@@ -23,17 +23,12 @@ Input: "Navigate to https://example.com and click the Login button"
 Output:
 [
   {
-    "action": "goTo",
-    "url": "https://example.com"
+    "goTo": "https://example.com"
   },
   {
-    "action": "find",
-    "selector": "button:has-text('Login')",
-    "description": "Verify Login button exists"
-  },
-  {
-    "action": "click",
-    "selector": "button:has-text('Login')"
+    "click": {
+      "elementText": "Login"
+    }
   }
 ]
 
@@ -42,79 +37,46 @@ Input: "Enter your email and password, then submit the form"
 Output:
 [
   {
-    "action": "find",
-    "selector": "input[type='email']",
+    "find": {
+      "selector": "input[type='email']"
+    },
     "description": "Verify email field exists"
   },
   {
-    "action": "typeKeys",
-    "selector": "input[type='email']",
-    "keys": "$EMAIL"
+    "type": {
+      "selector": "input[type='email']",
+      "keys": "$EMAIL"
+    }
   },
   {
-    "action": "find",
-    "selector": "input[type='password']",
+    "find": {
+      "selector": "input[type='password']"
+    },
     "description": "Verify password field exists"
   },
   {
-    "action": "typeKeys",
-    "selector": "input[type='password']",
-    "keys": "$PASSWORD"
+    "type": {
+      "selector": "input[type='password']",
+      "keys": "$PASSWORD"
+    }
   },
   {
-    "action": "find",
-    "selector": "button[type='submit']",
-    "description": "Verify submit button exists"
-  },
-  {
-    "action": "click",
-    "selector": "button[type='submit']"
-  }
-]
-
-Example 3 - Conditional logic:
-Input: "If you see a popup, close it. Then click Continue."
-Output:
-[
-  {
-    "action": "conditional",
-    "if": [
-      {
-        "action": "find",
-        "selector": ".popup",
-        "matchText": ".*"
-      }
-    ],
-    "then": [
-      {
-        "action": "click",
-        "selector": ".popup .close"
-      }
-    ]
-  },
-  {
-    "action": "find",
-    "selector": "button:has-text('Continue')",
-    "description": "Verify Continue button exists"
-  },
-  {
-    "action": "click",
-    "selector": "button:has-text('Continue')"
+    "click": {
+      "selector": "button[type='submit']"
+    }
   }
 ]
 
 COMMON PATTERNS TO WATCH FOR:
 - "Navigate to X" → goTo action
 - "Click X" → find + click actions
-- "Enter/Type X" → find + typeKeys actions
-- "Verify/Check X" → find action with matchText
-- "If/When X" → conditional action
+- "Enter/Type X" → find + type actions
+- "Verify/Check X" → find action with elementText
 - "Make a request to X" → httpRequest action
 - "Run command X" → runShell action
 
 OUTPUT FORMAT:
 - Return a JSON array of action objects
-- Each action must have an "action" field specifying the action type
 - Include all required fields for each action type based on the schemas provided
 - Use placeholder variables (e.g., $EMAIL, $PASSWORD, $USERNAME) when actual values aren't specified
 - Add a "description" field to explain the purpose when helpful
