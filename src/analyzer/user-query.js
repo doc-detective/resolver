@@ -73,17 +73,18 @@ async function queryUser(message, options = {}) {
  */
 async function queryLowConfidenceStep(step, confidence, browserContext) {
   console.log('\n' + '⚠'.repeat(40));
-  console.log('LOW CONFIDENCE STEP DETECTED');
+  console.log('Next step...');
   console.log('⚠'.repeat(40));
   console.log(`\nConfidence: ${(confidence * 100).toFixed(1)}%`);
-  console.log(`Proposed Step: ${step.description || JSON.stringify(step, null, 2)}\n`);
+  console.log(`Proposed Step: ${JSON.stringify(step, null, 2)}\n`);
   
   const action = await queryUser(
-    'The analyzer has low confidence in this step. What would you like to do?',
+    'Doc Detective interpreted this step. What would you like to do?',
     {
       type: 'list',
       choices: [
         'Continue with this step',
+        'Edit the JSON manually',
         'Show me the JSON and browser context',
         'Skip this step',
         'Abort the analysis'
@@ -91,7 +92,42 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
     }
   );
 
-  if (action === 'Show me the JSON and browser context') {
+  if (action === 'Edit the JSON manually') {
+    const editedJson = await queryUser(
+      'Enter the corrected JSON for this step (paste the entire step object):',
+      { type: 'editor' }
+    );
+    
+    try {
+      const editedStep = JSON.parse(editedJson);
+      console.log('\nParsed edited step:');
+      console.log(JSON.stringify(editedStep, null, 2));
+      
+      const confirm = await queryUser(
+        'Use this edited step?',
+        { type: 'confirm', defaultValue: true }
+      );
+      
+      if (confirm) {
+        return { action: 'continue', step: editedStep };
+      } else {
+        // Recursive call to let them try again
+        return queryLowConfidenceStep(step, confidence, browserContext);
+      }
+    } catch (error) {
+      console.log(`\n❌ Invalid JSON: ${error.message}\n`);
+      const retry = await queryUser(
+        'JSON parsing failed. Try again?',
+        { type: 'confirm', defaultValue: true }
+      );
+      
+      if (retry) {
+        return queryLowConfidenceStep(step, confidence, browserContext);
+      } else {
+        return { action: 'abort' };
+      }
+    }
+  } else if (action === 'Show me the JSON and browser context') {
     console.log('\nProposed Step (JSON):');
     console.log(JSON.stringify(step, null, 2));
     console.log('\nBrowser Context:');
@@ -104,6 +140,7 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
         type: 'list',
         choices: [
           'Continue with this step',
+          'Edit the JSON manually',
           'Skip this step',
           'Abort the analysis'
         ]
@@ -112,6 +149,9 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
     
     if (secondAction === 'Continue with this step') {
       return { action: 'continue', step };
+    } else if (secondAction === 'Edit the JSON manually') {
+      // Recursive call to handle editing
+      return queryLowConfidenceStep(step, confidence, browserContext);
     } else if (secondAction === 'Skip this step') {
       return { action: 'skip' };
     } else {
@@ -205,22 +245,6 @@ async function queryStepFailure(step, result, retryCount, maxRetries) {
   console.log('❌'.repeat(40));
   console.log(`\nFailed Step: ${step.description || JSON.stringify(step)}`);
   console.log(`Failure Reason: ${result.description || result.resultDescription || 'Unknown'}`);
-  console.log(`Retry Attempt: ${retryCount} of ${maxRetries}\n`);
-
-  if (retryCount >= maxRetries) {
-    const action = await queryUser(
-      'Maximum retries reached. What would you like to do?',
-      {
-        type: 'list',
-        choices: [
-          'Skip this step and continue',
-          'Abort the analysis'
-        ]
-      }
-    );
-    
-    return action === 'Skip this step and continue' ? 'skip' : 'abort';
-  }
 
   const action = await queryUser(
     'What would you like to do?',

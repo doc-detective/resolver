@@ -191,7 +191,7 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
         metadata.tokenUsage.total += (refinedResult.metadata.promptTokens || 0) + (refinedResult.metadata.completionTokens || 0);
       }
 
-      const { step: refinedStep, confidence, reasoning } = refinedResult;
+      let { step: refinedStep, confidence, reasoning } = refinedResult;
       console.log(`Confidence: ${(confidence * 100).toFixed(1)}%`);
       console.log(`Reasoning: ${reasoning}\n`);
 
@@ -200,8 +200,9 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
       stepCredentials.forEach(cred => credentialsDetected.add(cred));
 
       // Query user if confidence is low
-      if (confidence < userQueryThreshold) {
+      // if (confidence < userQueryThreshold) {
         const userDecision = await queryLowConfidenceStep(refinedStep, confidence, browserContext);
+        refinedStep = userDecision.step || refinedStep;
         metadata.userInterventions.push({
           type: 'low_confidence',
           timestamp: new Date().toISOString(),
@@ -211,14 +212,14 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
         });
 
         if (userDecision.action === 'abort') {
-          throw new Error('Analysis aborted by user due to low confidence step');
+          throw new Error('Analysis aborted by user.\n');
         } else if (userDecision.action === 'skip') {
           metadata.stepsSkipped++;
           console.log('Step skipped by user.\n');
           continue;
         }
         // Continue with the step if user chose 'continue'
-      }
+      // }
 
       // Validate step before execution
       console.log('Validating step...');
@@ -233,43 +234,40 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
       // Execute step with retry
       console.log('Executing step...');
       const context = test.contexts[0];
-      const executionResult = await executeStepWithRetry(
-        refinedStep,
-        DocDetectiveRunner.driver,
-        config,
-        coreRunStep,
-        context,
-        {
-          maxRetries,
-          useLlmRefinement,
-          browserContext
-        }
-      );
+      const stepResult = await DocDetectiveRunner.runStep({step: refinedStep, context: context, driver: DocDetectiveRunner.driver});
+      // const executionResult = await executeStepWithRetry(
+      //   refinedStep,
+      //   DocDetectiveRunner.driver,
+      //   config,
+      //   coreRunStep,
+      //   context,
+      //   {
+      //     maxRetries,
+      //     useLlmRefinement,
+      //     browserContext
+      //   }
+      // );
 
-      metadata.retries += executionResult.retries || 0;
+      metadata.retries += stepResult.retries || 0;
       metadata.stepsExecuted++;
 
-      console.log(`Result: ${executionResult.status}`);
-      console.log(`Retries: ${executionResult.retries || 0}\n`);
+      console.log(`Result: ${stepResult.status}`);
+      console.log(`Retries: ${stepResult.retries || 0}\n`);
 
       // Handle execution result
-      if (executionResult.status === 'PASS') {
+      if (stepResult.status === 'PASS') {
         // Add to completed steps
-        completedSteps.push({
-          stepId: randomUUID(),
-          ...executionResult.finalStep,
-          description: executionResult.finalStep.description || reasoning
-        });
+        completedSteps.push(stepResult);
         console.log('✓ Step completed successfully.\n');
       } else {
         // Step failed even after retries
         metadata.stepsFailed++;
-        console.log(`✗ Step failed: ${executionResult.description}\n`);
+        console.log(`✗ Step failed: ${stepResult.description}\n`);
 
         const failureDecision = await queryStepFailure(
           refinedStep,
-          executionResult,
-          executionResult.retries || 0,
+          stepResult,
+          stepResult.retries || 0,
           maxRetries
         );
 
@@ -277,7 +275,7 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
           type: 'step_failure',
           timestamp: new Date().toISOString(),
           step: refinedStep,
-          result: executionResult,
+          result: stepResult,
           decision: failureDecision
         });
 
