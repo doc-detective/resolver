@@ -10,6 +10,7 @@ const { buildDynamicPrompt } = require('./dynamic-prompt-builder');
 const { executeStepWithRetry, validateStepPreExecution } = require('./step-executor');
 const {
   queryLowConfidenceStep,
+  queryInsertStep,
   queryCredentials,
   queryStepFailure,
   queryInitialUrl
@@ -202,7 +203,7 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
       // Query user if confidence is low
       // if (confidence < userQueryThreshold) {
         const userDecision = await queryLowConfidenceStep(refinedStep, confidence, browserContext);
-        refinedStep = userDecision.step || refinedStep;
+        
         metadata.userInterventions.push({
           type: 'low_confidence',
           timestamp: new Date().toISOString(),
@@ -217,8 +218,65 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
           metadata.stepsSkipped++;
           console.log('Step skipped by user.\n');
           continue;
+        } else if (userDecision.action === 'insert_before') {
+          // User wants to insert a step before the current one
+          const insertedStep = userDecision.insertedStep;
+          const currentStep = userDecision.currentStep;
+          
+          console.log('\nExecuting inserted step first...');
+          console.log(JSON.stringify(insertedStep, null, 2) + '\n');
+          
+          // Execute the inserted step
+          const insertContext = test.contexts[0];
+          const insertResult = await DocDetectiveRunner.runStep({
+            step: insertedStep, 
+            context: insertContext, 
+            driver: DocDetectiveRunner.driver
+          });
+          
+          metadata.stepsExecuted++;
+          console.log(`Result: ${insertResult.status}`);
+          
+          if (insertResult.status === 'PASS') {
+            completedSteps.push(insertResult);
+            console.log('✓ Inserted step completed successfully.\n');
+            
+            // Now continue with the current step
+            refinedStep = currentStep;
+            console.log('Now continuing with original step...');
+            console.log(JSON.stringify(refinedStep, null, 2) + '\n');
+          } else {
+            metadata.stepsFailed++;
+            console.log(`✗ Inserted step failed: ${insertResult.description}\n`);
+            
+            const insertFailureDecision = await queryStepFailure(
+              insertedStep,
+              insertResult,
+              0,
+              maxRetries
+            );
+            
+            if (insertFailureDecision === 'abort') {
+              throw new Error('Analysis aborted by user due to inserted step failure');
+            } else if (insertFailureDecision === 'skip') {
+              metadata.stepsSkipped++;
+              console.log('Failed inserted step skipped. Continuing with original step...\n');
+              refinedStep = currentStep;
+            } else if (insertFailureDecision === 'insert_before') {
+              // User wants to insert another step before the inserted step
+              console.log('Inserting another step...\n');
+              // This will be handled in the retry loop naturally
+              continue;
+            } else {
+              // Retry the inserted step
+              console.log('Retrying inserted step...\n');
+              continue;
+            }
+          }
+        } else {
+          // Continue with the step if user chose 'continue'
+          refinedStep = userDecision.step || refinedStep;
         }
-        // Continue with the step if user chose 'continue'
       // }
 
       // Validate step before execution
@@ -284,6 +342,57 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
         } else if (failureDecision === 'skip') {
           metadata.stepsSkipped++;
           console.log('Failed step skipped by user.\n');
+          continue;
+        } else if (failureDecision === 'insert_before') {
+          // User wants to insert a prerequisite step
+          const insertedStep = await queryInsertStep(browserContext);
+          
+          if (insertedStep.action === 'abort') {
+            throw new Error('Analysis aborted by user');
+          } else if (insertedStep.action === 'continue') {
+            console.log('\nExecuting inserted step before retry...');
+            console.log(JSON.stringify(insertedStep.step, null, 2) + '\n');
+            
+            const insertContext = test.contexts[0];
+            const insertResult = await DocDetectiveRunner.runStep({
+              step: insertedStep.step,
+              context: insertContext,
+              driver: DocDetectiveRunner.driver
+            });
+            
+            metadata.stepsExecuted++;
+            console.log(`Result: ${insertResult.status}`);
+            
+            if (insertResult.status === 'PASS') {
+              completedSteps.push(insertResult);
+              console.log('✓ Inserted step completed successfully.\n');
+              console.log('Now retrying the failed step...\n');
+              
+              // Retry the original failed step
+              const retryContext = test.contexts[0];
+              const retryResult = await DocDetectiveRunner.runStep({
+                step: refinedStep,
+                context: retryContext,
+                driver: DocDetectiveRunner.driver
+              });
+              
+              metadata.stepsExecuted++;
+              console.log(`Retry result: ${retryResult.status}`);
+              
+              if (retryResult.status === 'PASS') {
+                completedSteps.push(retryResult);
+                console.log('✓ Retry successful after inserted step.\n');
+              } else {
+                metadata.stepsFailed++;
+                console.log(`✗ Retry still failed: ${retryResult.description}\n`);
+                // Will ask user again in next iteration if needed
+              }
+            } else {
+              metadata.stepsFailed++;
+              console.log(`✗ Inserted step failed: ${insertResult.description}\n`);
+            }
+          }
+          // Continue to next instruction segment
           continue;
         }
         // If 'retry' was selected, it already happened in executeStepWithRetry
