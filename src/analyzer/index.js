@@ -46,8 +46,8 @@ async function analyzeDocument(document, config, schemas) {
     throw new Error('Document must be a non-empty string');
   }
   
-  if (!config || !config.provider || !config.apiKey) {
-    throw new Error('Config must include provider and apiKey');
+  if (!config || !config.provider) {
+    throw new Error('Config must include provider');
   }
   
   // 1. Parse document into segments

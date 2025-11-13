@@ -5,7 +5,7 @@ const { schemas } = require("doc-detective-common");
 const { generateText, generateObject, jsonSchema } = require("ai");
 const { createAnthropic } = require("@ai-sdk/anthropic");
 const { google } = require("@ai-sdk/google");
-const { openai } = require("@ai-sdk/openai");
+const { createOpenAI } = require("@ai-sdk/openai");
 
 /**
  * Creates an LLM provider instance based on configuration
@@ -27,9 +27,11 @@ function createProvider(config) {
         apiKey: config.apiKey,
       });
     case "openai":
-      return openai(config.model || "gpt-4o", {
-        apiKey: config.apiKey,
+      const openai = createOpenAI({
+        baseURL: config.baseUrl || "https://api.openai.com/v1",
+        apiKey: config.apiKey || process.env.OPENAI_API_KEY || "",
       });
+      return openai(config.model || "gpt-5");
     case "local":
       // Local llama.cpp server with OpenAI-compatible API
       return openai(config.model || "local-model", {
