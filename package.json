@@ -27,6 +27,7 @@
     "@ai-sdk/anthropic": "^2.0.41",
     "@ai-sdk/google": "^2.0.27",
     "@ai-sdk/openai": "^2.0.62",
+    "@ai-sdk/openai-compatible": "^1.0.27",
     "@apidevtools/json-schema-ref-parser": "^14.2.1",
     "ai": "^5.0.87",
     "ajv": "^8.17.1",

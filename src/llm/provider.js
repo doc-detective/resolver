@@ -7,6 +7,7 @@ const { createAnthropic } = require("@ai-sdk/anthropic");
 const { google } = require("@ai-sdk/google");
 const { createOpenAI } = require("@ai-sdk/openai");
 const { createOllama } = require("ollama-ai-provider-v2");
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 /**
  * Creates an LLM provider instance based on configuration
@@ -33,6 +34,12 @@ function createProvider(config) {
         apiKey: config.apiKey || process.env.OPENAI_API_KEY || "",
       });
       return openai(config.model || "gpt-5");
+    case "lmstudio":
+      const lmstudio = createOpenAICompatible({
+        name: "lmstudio",
+        baseURL: config.baseUrl || "http://localhost:1234/v1",
+      });
+      return lmstudio(config.model || "openai/gpt-oss-20b");
     case "ollama":
       const ollama = createOllama({
         baseURL: config.baseUrl || "http://localhost:11434/api",
