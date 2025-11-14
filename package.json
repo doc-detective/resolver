@@ -36,6 +36,7 @@
     "dotenv": "^17.2.3",
     "inquirer": "^8.2.6",
     "json-schema-faker": "^0.5.9",
+    "ollama-ai-provider-v2": "^1.5.4",
     "posthog-node": "^5.11.0"
   },
   "devDependencies": {

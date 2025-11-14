@@ -6,13 +6,14 @@ const { generateText, generateObject, jsonSchema } = require("ai");
 const { createAnthropic } = require("@ai-sdk/anthropic");
 const { google } = require("@ai-sdk/google");
 const { createOpenAI } = require("@ai-sdk/openai");
+const { createOllama } = require("ollama-ai-provider-v2");
 
 /**
  * Creates an LLM provider instance based on configuration
  * @param {Object} config - Analyzer configuration
- * @param {string} config.provider - Provider name ('anthropic', 'google', 'openai', or 'local')
+ * @param {string} config.provider - Provider name ('anthropic', 'google', 'openai', 'ollama', or 'local')
  * @param {string} [config.model] - Model name (uses default if not specified)
- * @param {string} [config.baseURL] - Base URL for local provider (default: http://localhost:8080/v1)
+ * @param {string} [config.baseUrl] - Base URL for local/ollama provider
  * @returns {Object} Provider instance
  */
 function createProvider(config) {
@@ -32,6 +33,11 @@ function createProvider(config) {
         apiKey: config.apiKey || process.env.OPENAI_API_KEY || "",
       });
       return openai(config.model || "gpt-5");
+    case "ollama":
+      const ollama = createOllama({
+        baseURL: config.baseUrl || "http://localhost:11434/api",
+      });
+      return ollama(config.model || "qwen3:4b");
     case "local":
       // Local llama.cpp server with OpenAI-compatible API
       return openai(config.model || "local-model", {
