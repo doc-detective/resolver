@@ -7,7 +7,7 @@ const { createAnthropic } = require("@ai-sdk/anthropic");
 const { google } = require("@ai-sdk/google");
 const { createOpenAI } = require("@ai-sdk/openai");
 const { createOllama } = require("ollama-ai-provider-v2");
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+const { createOpenAICompatible } = require("@ai-sdk/openai-compatible");
 
 /**
  * Creates an LLM provider instance based on configuration
