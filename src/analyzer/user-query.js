@@ -7,6 +7,395 @@ const inquirer = require("inquirer");
 const path = require("path");
 
 /**
+ * Interactive JSON editor that allows navigating and editing JSON objects.
+ *
+ * @param {Object} jsonObject - The JSON object to edit
+ * @param {Array<string>} breadcrumb - Current path in the object (for display)
+ * @returns {Promise<Object>} The edited JSON object
+ */
+async function editJsonInteractive(jsonObject, breadcrumb = []) {
+  const currentPath = breadcrumb.length > 0 ? breadcrumb.join(" > ") : "Root";
+  
+  console.log("\n" + "─".repeat(80));
+  console.log(`Editing: ${currentPath}`);
+  console.log("─".repeat(80));
+  console.log("Current value:");
+  console.log(JSON.stringify(jsonObject, null, 2));
+  console.log("");
+
+  // If not an object, allow direct editing
+  if (typeof jsonObject !== "object" || jsonObject === null) {
+    const newValue = await queryUser(
+      `Enter new value for ${currentPath}:`,
+      { type: "input", defaultValue: String(jsonObject) }
+    );
+    return parseValue(newValue);
+  }
+
+  // If array, handle differently
+  if (Array.isArray(jsonObject)) {
+    return await editArrayInteractive(jsonObject, breadcrumb);
+  }
+
+  // Build choices for object navigation
+  const choices = [];
+  const keys = Object.keys(jsonObject);
+
+  keys.forEach((key) => {
+    const value = jsonObject[key];
+    const valueType = Array.isArray(value)
+      ? "array"
+      : typeof value === "object" && value !== null
+      ? "object"
+      : typeof value;
+    const preview =
+      typeof value === "object"
+        ? `{${valueType}}`
+        : String(value).substring(0, 50);
+    choices.push(`Edit "${key}": ${preview}`);
+  });
+
+  choices.push("➕ Add new key");
+  choices.push("🗑️  Delete a key");
+  if (breadcrumb.length > 0) {
+    choices.push("⬅️  Go back");
+  }
+  choices.push("✅ Done editing");
+
+  const action = await queryUser("What would you like to do?", {
+    type: "list",
+    choices,
+  });
+
+  if (action === "✅ Done editing") {
+    return jsonObject;
+  } else if (action === "⬅️  Go back") {
+    return jsonObject;
+  } else if (action === "➕ Add new key") {
+    const keyName = await queryUser("Enter the key name:", { type: "input" });
+    if (!keyName) {
+      return editJsonInteractive(jsonObject, breadcrumb);
+    }
+
+    const valueType = await queryUser("Select the value type:", {
+      type: "list",
+      choices: ["string", "number", "boolean", "object", "array", "null"],
+    });
+
+    let newValue;
+    if (valueType === "object") {
+      newValue = {};
+      newValue = await editJsonInteractive(newValue, [...breadcrumb, keyName]);
+    } else if (valueType === "array") {
+      newValue = [];
+      newValue = await editArrayInteractive(newValue, [...breadcrumb, keyName]);
+    } else if (valueType === "null") {
+      newValue = null;
+    } else if (valueType === "boolean") {
+      const boolValue = await queryUser(`Enter value for "${keyName}":`, {
+        type: "list",
+        choices: ["true", "false"],
+      });
+      newValue = boolValue === "true";
+    } else if (valueType === "number") {
+      const numValue = await queryUser(`Enter value for "${keyName}":`, {
+        type: "input",
+      });
+      newValue = parseFloat(numValue);
+      if (isNaN(newValue)) {
+        console.log("Invalid number, using 0");
+        newValue = 0;
+      }
+    } else {
+      // string
+      newValue = await queryUser(`Enter value for "${keyName}":`, {
+        type: "input",
+      });
+    }
+
+    jsonObject[keyName] = newValue;
+    return editJsonInteractive(jsonObject, breadcrumb);
+  } else if (action === "🗑️  Delete a key") {
+    if (keys.length === 0) {
+      console.log("No keys to delete.");
+      return editJsonInteractive(jsonObject, breadcrumb);
+    }
+
+    const keyToDelete = await queryUser("Select key to delete:", {
+      type: "list",
+      choices: [...keys, "Cancel"],
+    });
+
+    if (keyToDelete !== "Cancel") {
+      delete jsonObject[keyToDelete];
+      console.log(`Deleted key: ${keyToDelete}`);
+    }
+    return editJsonInteractive(jsonObject, breadcrumb);
+  } else {
+    // Edit a specific key
+    const match = action.match(/^Edit "(.+?)":/);
+    if (!match) {
+      return editJsonInteractive(jsonObject, breadcrumb);
+    }
+
+    const keyName = match[1];
+    const currentValue = jsonObject[keyName];
+
+    // If it's an object or array, navigate into it
+    if (typeof currentValue === "object" && currentValue !== null) {
+      if (Array.isArray(currentValue)) {
+        jsonObject[keyName] = await editArrayInteractive(
+          currentValue,
+          [...breadcrumb, keyName]
+        );
+      } else {
+        jsonObject[keyName] = await editJsonInteractive(
+          currentValue,
+          [...breadcrumb, keyName]
+        );
+      }
+    } else {
+      // Edit primitive value
+      const valueType = typeof currentValue;
+      let newValue;
+
+      if (valueType === "boolean") {
+        const boolValue = await queryUser(`Edit "${keyName}":`, {
+          type: "list",
+          choices: ["true", "false", "null"],
+          defaultValue: String(currentValue),
+        });
+        newValue = boolValue === "null" ? null : boolValue === "true";
+      } else if (valueType === "number") {
+        const numValue = await queryUser(`Edit "${keyName}":`, {
+          type: "input",
+          defaultValue: String(currentValue),
+        });
+        if (numValue === "null") {
+          newValue = null;
+        } else {
+          newValue = parseFloat(numValue);
+          if (isNaN(newValue)) {
+            console.log("Invalid number, keeping original value");
+            newValue = currentValue;
+          }
+        }
+      } else {
+        // string or null
+        newValue = await queryUser(`Edit "${keyName}":`, {
+          type: "input",
+          defaultValue: currentValue === null ? "null" : String(currentValue),
+        });
+        if (newValue === "null") {
+          newValue = null;
+        }
+      }
+
+      jsonObject[keyName] = newValue;
+    }
+
+    return editJsonInteractive(jsonObject, breadcrumb);
+  }
+}
+
+/**
+ * Interactive array editor.
+ *
+ * @param {Array} arrayObject - The array to edit
+ * @param {Array<string>} breadcrumb - Current path in the object
+ * @returns {Promise<Array>} The edited array
+ */
+async function editArrayInteractive(arrayObject, breadcrumb = []) {
+  const currentPath = breadcrumb.length > 0 ? breadcrumb.join(" > ") : "Root";
+  
+  console.log("\n" + "─".repeat(80));
+  console.log(`Editing Array: ${currentPath}`);
+  console.log("─".repeat(80));
+  console.log("Current array:");
+  console.log(JSON.stringify(arrayObject, null, 2));
+  console.log("");
+
+  const choices = [];
+
+  arrayObject.forEach((item, index) => {
+    const itemType = Array.isArray(item)
+      ? "array"
+      : typeof item === "object" && item !== null
+      ? "object"
+      : typeof item;
+    const preview =
+      typeof item === "object" ? `{${itemType}}` : String(item).substring(0, 50);
+    choices.push(`Edit [${index}]: ${preview}`);
+  });
+
+  choices.push("➕ Add item");
+  choices.push("🗑️  Delete item");
+  if (breadcrumb.length > 0) {
+    choices.push("⬅️  Go back");
+  }
+  choices.push("✅ Done editing");
+
+  const action = await queryUser("What would you like to do?", {
+    type: "list",
+    choices,
+  });
+
+  if (action === "✅ Done editing") {
+    return arrayObject;
+  } else if (action === "⬅️  Go back") {
+    return arrayObject;
+  } else if (action === "➕ Add item") {
+    const valueType = await queryUser("Select the item type:", {
+      type: "list",
+      choices: ["string", "number", "boolean", "object", "array", "null"],
+    });
+
+    let newValue;
+    if (valueType === "object") {
+      newValue = {};
+      newValue = await editJsonInteractive(newValue, [
+        ...breadcrumb,
+        `[${arrayObject.length}]`,
+      ]);
+    } else if (valueType === "array") {
+      newValue = [];
+      newValue = await editArrayInteractive(newValue, [
+        ...breadcrumb,
+        `[${arrayObject.length}]`,
+      ]);
+    } else if (valueType === "null") {
+      newValue = null;
+    } else if (valueType === "boolean") {
+      const boolValue = await queryUser("Enter value:", {
+        type: "list",
+        choices: ["true", "false"],
+      });
+      newValue = boolValue === "true";
+    } else if (valueType === "number") {
+      const numValue = await queryUser("Enter value:", { type: "input" });
+      newValue = parseFloat(numValue);
+      if (isNaN(newValue)) {
+        console.log("Invalid number, using 0");
+        newValue = 0;
+      }
+    } else {
+      // string
+      newValue = await queryUser("Enter value:", { type: "input" });
+    }
+
+    arrayObject.push(newValue);
+    return editArrayInteractive(arrayObject, breadcrumb);
+  } else if (action === "🗑️  Delete item") {
+    if (arrayObject.length === 0) {
+      console.log("Array is empty.");
+      return editArrayInteractive(arrayObject, breadcrumb);
+    }
+
+    const indexChoices = arrayObject.map((item, index) => {
+      const preview =
+        typeof item === "object"
+          ? JSON.stringify(item).substring(0, 40)
+          : String(item).substring(0, 40);
+      return `[${index}]: ${preview}`;
+    });
+    indexChoices.push("Cancel");
+
+    const itemToDelete = await queryUser("Select item to delete:", {
+      type: "list",
+      choices: indexChoices,
+    });
+
+    if (itemToDelete !== "Cancel") {
+      const match = itemToDelete.match(/^\[(\d+)\]:/);
+      if (match) {
+        const index = parseInt(match[1]);
+        arrayObject.splice(index, 1);
+        console.log(`Deleted item at index ${index}`);
+      }
+    }
+    return editArrayInteractive(arrayObject, breadcrumb);
+  } else {
+    // Edit a specific index
+    const match = action.match(/^Edit \[(\d+)\]:/);
+    if (!match) {
+      return editArrayInteractive(arrayObject, breadcrumb);
+    }
+
+    const index = parseInt(match[1]);
+    const currentValue = arrayObject[index];
+
+    // If it's an object or array, navigate into it
+    if (typeof currentValue === "object" && currentValue !== null) {
+      if (Array.isArray(currentValue)) {
+        arrayObject[index] = await editArrayInteractive(currentValue, [
+          ...breadcrumb,
+          `[${index}]`,
+        ]);
+      } else {
+        arrayObject[index] = await editJsonInteractive(currentValue, [
+          ...breadcrumb,
+          `[${index}]`,
+        ]);
+      }
+    } else {
+      // Edit primitive value
+      const valueType = typeof currentValue;
+      let newValue;
+
+      if (valueType === "boolean") {
+        const boolValue = await queryUser(`Edit [${index}]:`, {
+          type: "list",
+          choices: ["true", "false", "null"],
+          defaultValue: String(currentValue),
+        });
+        newValue = boolValue === "null" ? null : boolValue === "true";
+      } else if (valueType === "number") {
+        const numValue = await queryUser(`Edit [${index}]:`, {
+          type: "input",
+          defaultValue: String(currentValue),
+        });
+        if (numValue === "null") {
+          newValue = null;
+        } else {
+          newValue = parseFloat(numValue);
+          if (isNaN(newValue)) {
+            console.log("Invalid number, keeping original value");
+            newValue = currentValue;
+          }
+        }
+      } else {
+        // string or null
+        newValue = await queryUser(`Edit [${index}]:`, {
+          type: "input",
+          defaultValue: currentValue === null ? "null" : String(currentValue),
+        });
+        if (newValue === "null") {
+          newValue = null;
+        }
+      }
+
+      arrayObject[index] = newValue;
+    }
+
+    return editArrayInteractive(arrayObject, breadcrumb);
+  }
+}
+
+/**
+ * Parse a string value to its appropriate type.
+ *
+ * @param {string} value - String value to parse
+ * @returns {*} Parsed value
+ */
+function parseValue(value) {
+  if (value === "null") return null;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  if (!isNaN(value) && value.trim() !== "") return parseFloat(value);
+  return value;
+}
+
+/**
  * Prompts the user with a question and optional choices.
  *
  * @param {string} message - Human-friendly message to display
@@ -94,39 +483,21 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
   );
 
   if (action === "Edit the JSON manually") {
-    const editedJson = await queryUser(
-      "Enter the corrected JSON for this step (paste the entire step object):",
-      { type: "editor" }
-    );
+    const editedStep = await editJsonInteractive(JSON.parse(JSON.stringify(step)), ["Step"]);
+    
+    console.log("\nEdited step:");
+    console.log(JSON.stringify(editedStep, null, 2));
 
-    try {
-      const editedStep = JSON.parse(editedJson);
-      console.log("\nParsed edited step:");
-      console.log(JSON.stringify(editedStep, null, 2));
+    const confirm = await queryUser("Use this edited step?", {
+      type: "confirm",
+      defaultValue: true,
+    });
 
-      const confirm = await queryUser("Use this edited step?", {
-        type: "confirm",
-        defaultValue: true,
-      });
-
-      if (confirm) {
-        return { action: "continue", step: editedStep };
-      } else {
-        // Recursive call to let them try again
-        return queryLowConfidenceStep(step, confidence, browserContext);
-      }
-    } catch (error) {
-      console.log(`\n❌ Invalid JSON: ${error.message}\n`);
-      const retry = await queryUser("JSON parsing failed. Try again?", {
-        type: "confirm",
-        defaultValue: true,
-      });
-
-      if (retry) {
-        return queryLowConfidenceStep(step, confidence, browserContext);
-      } else {
-        return { action: "abort" };
-      }
+    if (confirm) {
+      return { action: "continue", step: editedStep };
+    } else {
+      // Recursive call to let them try again
+      return queryLowConfidenceStep(step, confidence, browserContext);
     }
   } else if (action === "Insert a step before this one") {
     const insertedStep = await queryInsertStep(browserContext);
@@ -253,54 +624,28 @@ async function queryInsertStep(browserContext) {
     }
   );
 
-  let stepJson;
-
+  let stepObject;
+  
   if (templateChoice === "Enter custom JSON") {
-    const customJson = await queryUser("Enter the JSON for the new step:", {
-      type: "editor",
-    });
-    stepJson = customJson;
+    stepObject = await editJsonInteractive({}, ["New Step"]);
   } else {
     const template = templates[templateChoice];
-    console.log("\nTemplate:");
-    console.log(JSON.stringify(template, null, 2));
-    console.log("\nYou can now edit this JSON. Fill in the empty fields.");
-
-    const editedJson = await queryUser(
-      "Edit the step JSON (modify the template as needed):",
-      { type: "editor", defaultValue: JSON.stringify(template, null, 2) }
-    );
-    stepJson = editedJson;
+    stepObject = await editJsonInteractive(JSON.parse(JSON.stringify(template)), ["New Step"]);
   }
 
-  // Parse and validate the JSON
-  try {
-    const parsedStep = JSON.parse(stepJson);
-    console.log("\nParsed step:");
-    console.log(JSON.stringify(parsedStep, null, 2));
+  // Display and confirm the step
+  console.log("\nFinal step:");
+  console.log(JSON.stringify(stepObject, null, 2));
 
-    const confirm = await queryUser("Use this step?", {
-      type: "confirm",
-      defaultValue: true,
-    });
+  const confirm = await queryUser("Use this step?", {
+    type: "confirm",
+    defaultValue: true,
+  });
 
-    if (confirm) {
-      return { action: "continue", step: parsedStep };
-    } else {
-      const retry = await queryUser("Try again?", {
-        type: "confirm",
-        defaultValue: true,
-      });
-
-      if (retry) {
-        return queryInsertStep(browserContext);
-      } else {
-        return { action: "cancel" };
-      }
-    }
-  } catch (error) {
-    console.log(`\n❌ Invalid JSON: ${error.message}\n`);
-    const retry = await queryUser("JSON parsing failed. Try again?", {
+  if (confirm) {
+    return { action: "continue", step: stepObject };
+  } else {
+    const retry = await queryUser("Try again?", {
       type: "confirm",
       defaultValue: true,
     });
