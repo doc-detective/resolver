@@ -27,7 +27,7 @@
     "@apidevtools/json-schema-ref-parser": "^15.1.1",
     "ajv": "^8.17.1",
     "axios": "^1.13.2",
-    "doc-detective-common": "3.4.1-dev.2",
+    "doc-detective-common": "3.4.1-dev.3",
     "dotenv": "^17.2.3",
     "json-schema-faker": "^0.5.9",
     "posthog-node": "^5.11.2"
