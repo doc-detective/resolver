@@ -24,13 +24,13 @@
   },
   "homepage": "https://github.com/doc-detective/doc-detective-core#readme",
   "dependencies": {
-    "@apidevtools/json-schema-ref-parser": "^15.1.1",
+    "@apidevtools/json-schema-ref-parser": "^15.1.2",
     "ajv": "^8.17.1",
     "axios": "^1.13.2",
-    "doc-detective-common": "3.4.1-dev.4",
+    "doc-detective-common": "3.4.1-dev.5",
     "dotenv": "^17.2.3",
     "json-schema-faker": "^0.5.9",
-    "posthog-node": "^5.11.2"
+    "posthog-node": "^5.13.0"
   },
   "devDependencies": {
     "body-parser": "^2.2.0",
