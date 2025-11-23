@@ -4,7 +4,7 @@
   "description": "Detect and resolve docs into Doc Detective tests.",
   "main": "src/index.js",
   "scripts": {
-    "test": "mocha src/*.test.js",
+    "test": "mocha \"src/**/*.test.js\"",
     "dev": "node dev"
   },
   "repository": {
@@ -24,13 +24,21 @@
   },
   "homepage": "https://github.com/doc-detective/doc-detective-core#readme",
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.45",
+    "@ai-sdk/google": "^2.0.42",
+    "@ai-sdk/openai": "^2.0.71",
+    "@ai-sdk/openai-compatible": "^1.0.27",
     "@apidevtools/json-schema-ref-parser": "^15.1.2",
+    "ai": "^5.0.100",
     "ajv": "^8.17.1",
     "axios": "^1.13.2",
     "doc-detective-common": "^3.5.0",
+    "doc-detective-core": "^3.5.0",
     "dotenv": "^17.2.3",
+    "inquirer": "^8.2.6",
     "json-schema-faker": "^0.5.9",
-    "posthog-node": "^5.13.0"
+    "ollama-ai-provider-v2": "^1.5.5",
+    "posthog-node": "^5.13.2"
   },
   "devDependencies": {
     "body-parser": "^2.2.0",
