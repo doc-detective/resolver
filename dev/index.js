@@ -12,7 +12,8 @@ main();
  */
 async function main() {
   const json = {
-    input: "dev/doc-content.dita",
+    input: "https://www.doc-detective.com/sitemap.xml",
+    crawl: true,
     logLevel: "debug",
     runOn: [
       {
