@@ -5,6 +5,7 @@ const YAML = require("yaml");
 const axios = require("axios");
 const path = require("path");
 const { spawn } = require("child_process");
+const { XMLParser, XMLBuilder } = require("fast-xml-parser");
 const {
   validate,
   resolvePaths,
@@ -25,6 +26,9 @@ exports.cleanTemp = cleanTemp;
 exports.calculatePercentageDifference = calculatePercentageDifference;
 exports.fetchFile = fetchFile;
 exports.isRelativeUrl = isRelativeUrl;
+exports.parseDitamap = parseDitamap;
+exports.findCommonAncestor = findCommonAncestor;
+exports.copyAndRewriteDitamap = copyAndRewriteDitamap;
 
 function isRelativeUrl(url) {
   try {
@@ -35,6 +39,216 @@ function isRelativeUrl(url) {
     // If URL constructor throws an error, it's a relative URL
     return true;
   }
+}
+
+/**
+ * Parse a DITA map file and extract all referenced file paths recursively.
+ * Follows <topicref> and <mapref> elements, detecting circular references.
+ * 
+ * @param {string} ditamapPath - Absolute path to the ditamap file
+ * @param {Set} visitedMaps - Set of already-visited map paths (for circular reference detection)
+ * @param {number} depth - Current recursion depth
+ * @param {number} maxDepth - Maximum recursion depth (default 10)
+ * @returns {Array<string>} Array of absolute paths to all referenced files
+ * @throws {Error} If XML parsing fails
+ */
+function parseDitamap(ditamapPath, visitedMaps = new Set(), depth = 0, maxDepth = 10) {
+  // Check recursion depth
+  if (depth >= maxDepth) {
+    throw new Error(`Maximum recursion depth (${maxDepth}) exceeded while parsing ditamap: ${ditamapPath}`);
+  }
+
+  // Circular reference detection
+  const normalizedPath = path.resolve(ditamapPath);
+  if (visitedMaps.has(normalizedPath)) {
+    return []; // Skip already-visited maps
+  }
+  visitedMaps.add(normalizedPath);
+
+  // Read and parse the ditamap file
+  let xmlContent;
+  try {
+    xmlContent = fs.readFileSync(ditamapPath, "utf8");
+  } catch (error) {
+    throw new Error(`Failed to read ditamap file ${ditamapPath}: ${error.message}`);
+  }
+
+  // Parse XML with fast-xml-parser
+  const parserOptions = {
+    ignoreAttributes: false,
+    attributeNamePrefix: "@_",
+    textNodeName: "#text",
+    preserveOrder: true,
+  };
+
+  let parsedXml;
+  try {
+    const parser = new XMLParser(parserOptions);
+    parsedXml = parser.parse(xmlContent);
+  } catch (error) {
+    throw new Error(`Failed to parse XML in ditamap ${ditamapPath}: ${error.message}`);
+  }
+
+  const referencedFiles = [];
+  const ditamapDir = path.dirname(normalizedPath);
+
+  // Helper function to recursively extract hrefs from parsed XML
+  function extractHrefs(nodes) {
+    if (!Array.isArray(nodes)) return;
+
+    for (const node of nodes) {
+      const tagName = Object.keys(node).find(key => key !== ":@");
+      if (!tagName) continue;
+
+      const element = node[tagName];
+      const attributes = node[":@"];
+
+      // Check for href attribute in topicref or mapref elements
+      if ((tagName === "topicref" || tagName === "mapref") && attributes && attributes["@_href"]) {
+        const href = attributes["@_href"];
+        
+        // Skip external references (http://, https://, etc.)
+        if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+          continue;
+        }
+
+        // Resolve relative path to absolute path
+        const absolutePath = path.resolve(ditamapDir, href);
+        referencedFiles.push(absolutePath);
+
+        // If it's a mapref, recursively parse the referenced map
+        if (tagName === "mapref" && fs.existsSync(absolutePath)) {
+          try {
+            const nestedRefs = parseDitamap(absolutePath, visitedMaps, depth + 1, maxDepth);
+            referencedFiles.push(...nestedRefs);
+          } catch (error) {
+            // Log but don't fail if nested map can't be parsed
+            console.warn(`Warning: Failed to parse nested ditamap ${absolutePath}: ${error.message}`);
+          }
+        }
+      }
+
+      // Recursively process child elements
+      if (Array.isArray(element)) {
+        extractHrefs(element);
+      }
+    }
+  }
+
+  extractHrefs(parsedXml);
+
+  return referencedFiles;
+}
+
+/**
+ * Find the common ancestor directory that contains all referenced files.
+ * Falls back to current working directory if no common ancestor exists.
+ * 
+ * @param {string} ditamapPath - Absolute path to the ditamap file
+ * @param {Array<string>} referencedPaths - Array of absolute paths to referenced files
+ * @returns {string} Absolute path to the common ancestor directory
+ */
+function findCommonAncestor(ditamapPath, referencedPaths) {
+  // Include the ditamap itself in the list of paths
+  const allPaths = [ditamapPath, ...referencedPaths];
+
+  // If only ditamap (no references), return its directory
+  if (allPaths.length === 1) {
+    return path.dirname(path.resolve(ditamapPath));
+  }
+
+  // Normalize all paths to absolute paths
+  const normalizedPaths = allPaths.map(p => path.resolve(p));
+
+  // Split paths into components
+  const pathComponents = normalizedPaths.map(p => {
+    const parts = p.split(path.sep);
+    // On Unix-like systems, first element is empty string for absolute paths starting with '/'
+    // Keep it to maintain proper path structure
+    return parts;
+  });
+
+  // Find the shortest path (minimum number of components)
+  const minLength = Math.min(...pathComponents.map(pc => pc.length));
+
+  // Find common prefix
+  let commonComponents = [];
+  for (let i = 0; i < minLength; i++) {
+    const component = pathComponents[0][i];
+    if (pathComponents.every(pc => pc[i] === component)) {
+      commonComponents.push(component);
+    } else {
+      break;
+    }
+  }
+
+  // If no common ancestor found (e.g., different drives on Windows), use current working directory
+  if (commonComponents.length === 0 || (commonComponents.length === 1 && commonComponents[0] === '')) {
+    return process.cwd();
+  }
+
+  // Reconstruct the common ancestor path
+  let commonPath = commonComponents.join(path.sep);
+  
+  // Handle the root directory case on Unix-like systems
+  if (commonPath === '') {
+    commonPath = '/';
+  }
+  
+  return commonPath;
+}
+
+/**
+ * Copy a ditamap to a new location and rewrite all relative paths.
+ * Preserves XML formatting and structure using regex-based replacement.
+ * 
+ * @param {string} originalPath - Absolute path to the original ditamap
+ * @param {string} commonAncestor - Absolute path to the common ancestor directory
+ * @returns {string} Absolute path to the copied and rewritten ditamap
+ * @throws {Error} If file operations or XML parsing fails
+ */
+function copyAndRewriteDitamap(originalPath, commonAncestor) {
+  // Read the original ditamap
+  let xmlContent;
+  try {
+    xmlContent = fs.readFileSync(originalPath, "utf8");
+  } catch (error) {
+    throw new Error(`Failed to read ditamap file ${originalPath}: ${error.message}`);
+  }
+
+  const originalDir = path.dirname(originalPath);
+  const newDitamapPath = path.join(commonAncestor, path.basename(originalPath));
+
+  // Use regex to find and replace href attributes while preserving formatting
+  // Match href attributes in topicref and mapref elements
+  const hrefRegex = /(<(?:topicref|mapref)[^>]*\s+href=")([^"]+)(")/g;
+  
+  let newXmlContent = xmlContent.replace(hrefRegex, (match, prefix, href, suffix) => {
+    // Skip external references
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+      return match;
+    }
+
+    // Resolve the old absolute path
+    const oldAbsolutePath = path.resolve(originalDir, href);
+    
+    // Calculate new relative path from the new ditamap location
+    const newRelativePath = path.relative(commonAncestor, oldAbsolutePath);
+    
+    // Normalize to forward slashes for consistency
+    const normalizedPath = newRelativePath.replace(/\\/g, "/");
+    
+    return prefix + normalizedPath + suffix;
+  });
+
+  try {
+    // Write the rewritten ditamap to the new location
+    fs.writeFileSync(newDitamapPath, newXmlContent, "utf8");
+  } catch (error) {
+    throw new Error(`Failed to write rewritten ditamap ${newDitamapPath}: ${error.message}`);
+  }
+
+  return newDitamapPath;
 }
 
 // Parse XML-style attributes to an object
@@ -267,7 +481,57 @@ async function processDitaMap({config, source}) {
   }
 
   log(config, "info", `Processing DITA map: ${source}`);
+  
+  // Parse the ditamap to check for parent/sibling directory references
+  let referencedFiles = [];
+  let needsRewrite = false;
+  let copiedDitamapPath = null;
+  
+  try {
+    referencedFiles = parseDitamap(source);
+    
+    // Check if any referenced files require parent traversal
+    const sourceDir = path.dirname(path.resolve(source));
+    needsRewrite = referencedFiles.some(refPath => {
+      const relativePath = path.relative(sourceDir, refPath);
+      return relativePath.startsWith("..");
+    });
+    
+    if (needsRewrite) {
+      log(config, "info", `Ditamap references parent/sibling directories. Rewriting paths...`);
+      
+      // Find common ancestor directory
+      const commonAncestor = findCommonAncestor(source, referencedFiles);
+      log(config, "debug", `Common ancestor directory: ${commonAncestor}`);
+      
+      // Copy and rewrite the ditamap
+      copiedDitamapPath = copyAndRewriteDitamap(source, commonAncestor);
+      log(config, "debug", `Created temporary ditamap: ${copiedDitamapPath}`);
+      
+      // Use the copied ditamap for processing
+      source = copiedDitamapPath;
+    }
+  } catch (error) {
+    log(
+      config,
+      "warning",
+      `Failed to parse ditamap for path analysis: ${error.message}. Aborting DITA processing.`
+    );
+    return null;
+  }
+
   const ditaOutputDir = await spawnCommand("dita", ["-i", source, "-f", "dita", "-o", outputDir]);
+  
+  // Clean up the copied ditamap immediately after processing
+  if (copiedDitamapPath && fs.existsSync(copiedDitamapPath)) {
+    try {
+      fs.unlinkSync(copiedDitamapPath);
+      log(config, "debug", `Cleaned up temporary ditamap: ${copiedDitamapPath}`);
+    } catch (error) {
+      log(config, "warning", `Failed to clean up temporary ditamap: ${error.message}`);
+    }
+  }
+  
   if (ditaOutputDir.exitCode !== 0) {
     log(config, "error", `Failed to process DITA map: ${ditaOutputDir.stderr}`);
     return null;
