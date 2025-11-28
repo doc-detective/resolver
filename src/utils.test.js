@@ -159,6 +159,12 @@ describe("parseDitamap", function () {
 });
 
 describe("findCommonAncestor", function () {
+  // Helper to normalize paths for cross-platform comparison
+  function normalizePath(p) {
+    // Convert to forward slashes and remove drive letters
+    return p.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+  }
+
   it("should find common ancestor for files in sibling directories", function () {
     const ditamapPath = "/home/user/docs/maps/test.ditamap";
     const referencedPaths = [
@@ -168,7 +174,7 @@ describe("findCommonAncestor", function () {
     
     const commonAncestor = findCommonAncestor(ditamapPath, referencedPaths);
     
-    expect(commonAncestor).to.equal("/home/user/docs");
+    expect(normalizePath(commonAncestor)).to.equal("/home/user/docs");
   });
 
   it("should find common ancestor for files in parent directory", function () {
@@ -180,7 +186,7 @@ describe("findCommonAncestor", function () {
     
     const commonAncestor = findCommonAncestor(ditamapPath, referencedPaths);
     
-    expect(commonAncestor).to.equal("/home/user");
+    expect(normalizePath(commonAncestor)).to.equal("/home/user");
   });
 
   it.skip("should return root when no common ancestor exists (platform-dependent)", function () {
@@ -222,7 +228,7 @@ describe("findCommonAncestor", function () {
     
     const commonAncestor = findCommonAncestor(ditamapPath, referencedPaths);
     
-    expect(commonAncestor).to.equal("/home/user/docs");
+    expect(normalizePath(commonAncestor)).to.equal("/home/user/docs");
   });
 
   it("should handle empty reference paths", function () {
@@ -232,7 +238,7 @@ describe("findCommonAncestor", function () {
     const commonAncestor = findCommonAncestor(ditamapPath, referencedPaths);
     
     // Should return the directory containing the ditamap
-    expect(commonAncestor).to.equal("/home/user/docs/maps");
+    expect(normalizePath(commonAncestor)).to.equal("/home/user/docs/maps");
   });
 
   it.skip("should handle ditamap in root directory (platform-dependent)", function () {
