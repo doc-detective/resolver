@@ -7,13 +7,89 @@ const inquirer = require("inquirer");
 const path = require("path");
 
 /**
+ * Checks if a step object supports browser element selection.
+ * Supports: click, type, find, screenshot, goTo (for finding elements on page)
+ *
+ * @param {Object} stepObject - The step object to check
+ * @returns {boolean} True if the step supports element selection
+ */
+function supportsElementSelection(stepObject) {
+  if (!stepObject || typeof stepObject !== 'object') return false;
+  
+  // Check for step action keys that support element selection
+  const supportedActions = ['click', 'type', 'find', 'screenshot'];
+  return supportedActions.some(action => action in stepObject);
+}
+
+/**
+ * Applies selected element data to the appropriate fields in a step object.
+ *
+ * @param {Object} stepObject - The step object to modify
+ * @param {Object} selectorInfo - Selector information from determineOptimalSelector
+ * @returns {Object} Modified step object with populated fields
+ */
+function applyElementToStep(stepObject, selectorInfo) {
+  const modified = { ...stepObject };
+  
+  // Handle different step types
+  if (modified.click !== undefined) {
+    if (selectorInfo.property === 'elementText') {
+      modified.click = selectorInfo.value;
+    } else if (typeof modified.click === 'object') {
+      modified.click.selector = selectorInfo.value;
+    } else {
+      modified.click = { selector: selectorInfo.value };
+    }
+  } else if (modified.type !== undefined) {
+    if (typeof modified.type === 'object') {
+      if (selectorInfo.property === 'elementText') {
+        modified.type.elementText = selectorInfo.value;
+      } else {
+        modified.type.selector = selectorInfo.value;
+      }
+    } else {
+      // type is a string, convert to object
+      modified.type = {
+        keys: modified.type,
+        [selectorInfo.property === 'elementText' ? 'elementText' : 'selector']: selectorInfo.value
+      };
+    }
+  } else if (modified.find !== undefined) {
+    if (selectorInfo.property === 'elementText') {
+      modified.find = selectorInfo.value;
+    } else if (typeof modified.find === 'object') {
+      modified.find.selector = selectorInfo.value;
+    } else {
+      modified.find = { selector: selectorInfo.value };
+    }
+  } else if (modified.screenshot !== undefined) {
+    if (typeof modified.screenshot === 'object') {
+      if (selectorInfo.property === 'elementText') {
+        modified.screenshot.elementText = selectorInfo.value;
+      } else {
+        modified.screenshot.selector = selectorInfo.value;
+      }
+    } else {
+      // screenshot is a string (filename), add selector as property
+      modified.screenshot = {
+        path: modified.screenshot,
+        [selectorInfo.property === 'elementText' ? 'elementText' : 'selector']: selectorInfo.value
+      };
+    }
+  }
+  
+  return modified;
+}
+
+/**
  * Interactive JSON editor that allows navigating and editing JSON objects.
  *
  * @param {Object} jsonObject - The JSON object to edit
  * @param {Array<string>} breadcrumb - Current path in the object (for display)
+ * @param {Object} driver - Optional WebDriver instance for browser element selection
  * @returns {Promise<Object>} The edited JSON object
  */
-async function editJsonInteractive(jsonObject, breadcrumb = []) {
+async function editJsonInteractive(jsonObject, breadcrumb = [], driver = null) {
   const currentPath = breadcrumb.length > 0 ? breadcrumb.join(" > ") : "Root";
   
   console.log("\n" + "─".repeat(80));
@@ -40,6 +116,30 @@ async function editJsonInteractive(jsonObject, breadcrumb = []) {
   // Build choices for object navigation
   const choices = [];
   const keys = Object.keys(jsonObject);
+  
+  // Add step-level element selection option if this is a supported step and driver is available
+  // Check if we're at step level (breadcrumb includes 'Step' or 'New Step')
+  const isAtStepLevel = breadcrumb.length > 0 && breadcrumb.some(crumb => 
+    crumb === 'Step' || crumb === 'New Step'
+  );
+  // Allow selection if driver available AND (step already supports it OR step is empty/new)
+  const stepSupportsSelection = supportsElementSelection(jsonObject);
+  const isEmptyOrNewStep = Object.keys(jsonObject).length === 0 || 
+                           (Object.keys(jsonObject).length === 1 && 'description' in jsonObject);
+  const canSelectElement = isAtStepLevel && driver && (stepSupportsSelection || isEmptyOrNewStep);
+  
+  // Debug logging
+  if (isAtStepLevel) {
+    console.log(`[DEBUG] At step level: true`);
+    console.log(`[DEBUG] Driver available: ${!!driver}`);
+    console.log(`[DEBUG] Step supports selection: ${stepSupportsSelection}`);
+    console.log(`[DEBUG] Is empty/new step: ${isEmptyOrNewStep}`);
+    console.log(`[DEBUG] Can select element: ${canSelectElement}`);
+  }
+  
+  if (canSelectElement) {
+    choices.push("🎯 Select target element in browser");
+  }
 
   keys.forEach((key) => {
     const value = jsonObject[key];
@@ -71,6 +171,102 @@ async function editJsonInteractive(jsonObject, breadcrumb = []) {
     return jsonObject;
   } else if (action === "⬅️  Go back") {
     return jsonObject;
+  } else if (action === "🎯 Select target element in browser") {
+    // Launch browser element picker
+    const result = await selectElementInBrowser(driver);
+    
+    if (result.action === 'selected') {
+      let modifiedStep;
+      
+      // If step is empty or only has description, ask what type of step to create
+      const isEmptyStep = Object.keys(jsonObject).length === 0 || 
+                         (Object.keys(jsonObject).length === 1 && 'description' in jsonObject);
+      
+      if (isEmptyStep) {
+        const stepType = await queryUser("What type of step do you want to create?", {
+          type: "list",
+          choices: [
+            "click - Click the element",
+            "type - Type text into the element",
+            "find - Find and verify the element exists",
+            "screenshot - Take a screenshot of the element",
+            "Cancel"
+          ]
+        });
+        
+        if (stepType === "Cancel") {
+          return editJsonInteractive(jsonObject, breadcrumb, driver);
+        }
+        
+        const action = stepType.split(" - ")[0];
+        
+        // Create appropriate step structure
+        if (action === "click") {
+          if (result.selector.property === 'elementText') {
+            jsonObject.click = result.selector.value;
+          } else {
+            jsonObject.click = { selector: result.selector.value };
+          }
+        } else if (action === "type") {
+          const keys = await queryUser("Enter the text to type:", {
+            type: "input"
+          });
+          jsonObject.type = {
+            keys: keys,
+            [result.selector.property === 'elementText' ? 'elementText' : 'selector']: result.selector.value
+          };
+        } else if (action === "find") {
+          if (result.selector.property === 'elementText') {
+            jsonObject.find = result.selector.value;
+          } else {
+            jsonObject.find = { selector: result.selector.value };
+          }
+        } else if (action === "screenshot") {
+          const filename = await queryUser("Enter the screenshot filename:", {
+            type: "input",
+            defaultValue: "screenshot.png"
+          });
+          jsonObject.screenshot = {
+            path: filename,
+            [result.selector.property === 'elementText' ? 'elementText' : 'selector']: result.selector.value
+          };
+        }
+        
+        modifiedStep = jsonObject;
+      } else {
+        // Apply the selected element to the existing step
+        modifiedStep = applyElementToStep(jsonObject, result.selector);
+        
+        // Copy all properties from modified step
+        Object.keys(modifiedStep).forEach(key => {
+          jsonObject[key] = modifiedStep[key];
+        });
+      }
+      
+      console.log("\nUpdated step:");
+      console.log(JSON.stringify(jsonObject, null, 2));
+      
+      const confirm = await queryUser("Use this updated step?", {
+        type: "confirm",
+        defaultValue: true,
+      });
+      
+      if (!confirm) {
+        // Revert changes if not confirmed
+        if (!isEmptyStep) {
+          // For existing steps, we already modified in place, would need to track original
+          console.log("Changes kept. Continue editing to modify.");
+        } else {
+          // For new steps, clear what we added
+          Object.keys(jsonObject).forEach(key => {
+            if (key !== 'description') delete jsonObject[key];
+          });
+        }
+      }
+    }
+    
+    // Continue editing
+    return editJsonInteractive(jsonObject, breadcrumb, driver);
   } else if (action === "➕ Add new key") {
     const keyName = await queryUser("Enter the key name:", { type: "input" });
     if (!keyName) {
@@ -85,10 +281,10 @@ async function editJsonInteractive(jsonObject, breadcrumb = []) {
     let newValue;
     if (valueType === "object") {
       newValue = {};
-      newValue = await editJsonInteractive(newValue, [...breadcrumb, keyName]);
+      newValue = await editJsonInteractive(newValue, [...breadcrumb, keyName], driver);
     } else if (valueType === "array") {
       newValue = [];
-      newValue = await editArrayInteractive(newValue, [...breadcrumb, keyName]);
+      newValue = await editArrayInteractive(newValue, [...breadcrumb, keyName], driver);
     } else if (valueType === "null") {
       newValue = null;
     } else if (valueType === "boolean") {
@@ -146,12 +342,14 @@ async function editJsonInteractive(jsonObject, breadcrumb = []) {
       if (Array.isArray(currentValue)) {
         jsonObject[keyName] = await editArrayInteractive(
           currentValue,
-          [...breadcrumb, keyName]
+          [...breadcrumb, keyName],
+          driver
         );
       } else {
         jsonObject[keyName] = await editJsonInteractive(
           currentValue,
-          [...breadcrumb, keyName]
+          [...breadcrumb, keyName],
+          driver
         );
       }
     } else {
@@ -159,7 +357,10 @@ async function editJsonInteractive(jsonObject, breadcrumb = []) {
       const valueType = typeof currentValue;
       let newValue;
 
-      if (valueType === "boolean") {
+      // Special handling for selector and elementText fields
+      if ((keyName === "selector" || keyName === "elementText") && driver) {
+        newValue = await editSelectorWithBrowserPick(keyName, currentValue, driver);
+      } else if (valueType === "boolean") {
         const boolValue = await queryUser(`Edit "${keyName}":`, {
           type: "list",
           choices: ["true", "false", "null"],
@@ -203,9 +404,10 @@ async function editJsonInteractive(jsonObject, breadcrumb = []) {
  *
  * @param {Array} arrayObject - The array to edit
  * @param {Array<string>} breadcrumb - Current path in the object
+ * @param {Object} driver - Optional WebDriver instance for browser element selection
  * @returns {Promise<Array>} The edited array
  */
-async function editArrayInteractive(arrayObject, breadcrumb = []) {
+async function editArrayInteractive(arrayObject, breadcrumb = [], driver = null) {
   const currentPath = breadcrumb.length > 0 ? breadcrumb.join(" > ") : "Root";
   
   console.log("\n" + "─".repeat(80));
@@ -256,13 +458,13 @@ async function editArrayInteractive(arrayObject, breadcrumb = []) {
       newValue = await editJsonInteractive(newValue, [
         ...breadcrumb,
         `[${arrayObject.length}]`,
-      ]);
+      ], driver);
     } else if (valueType === "array") {
       newValue = [];
       newValue = await editArrayInteractive(newValue, [
         ...breadcrumb,
         `[${arrayObject.length}]`,
-      ]);
+      ], driver);
     } else if (valueType === "null") {
       newValue = null;
     } else if (valueType === "boolean") {
@@ -330,12 +532,12 @@ async function editArrayInteractive(arrayObject, breadcrumb = []) {
         arrayObject[index] = await editArrayInteractive(currentValue, [
           ...breadcrumb,
           `[${index}]`,
-        ]);
+        ], driver);
       } else {
         arrayObject[index] = await editJsonInteractive(currentValue, [
           ...breadcrumb,
           `[${index}]`,
-        ]);
+        ], driver);
       }
     } else {
       // Edit primitive value
@@ -393,6 +595,410 @@ function parseValue(value) {
   if (value === "false") return false;
   if (!isNaN(value) && value.trim() !== "") return parseFloat(value);
   return value;
+}
+
+/**
+ * Determines the optimal selector for an element based on priority.
+ * Priority: elementText > aria label > id > data-testid > unique attributes > CSS > XPath
+ *
+ * @param {Object} elementData - Data about the clicked element
+ * @param {string} elementData.id - Element ID
+ * @param {string} elementData.tagName - Element tag name
+ * @param {string} elementData.text - Element text content (trimmed)
+ * @param {string} elementData.ariaLabel - ARIA label attribute
+ * @param {string} elementData.name - Name attribute
+ * @param {string} elementData.type - Type attribute
+ * @param {string} elementData.role - Role attribute
+ * @param {string} elementData.dataTestId - data-testid attribute
+ * @param {Array<string>} elementData.classes - Array of class names
+ * @param {string} elementData.cssSelector - Unique CSS selector
+ * @param {string} elementData.xpath - XPath selector
+ * @param {number} elementData.matchCount - Number of elements matching this selector
+ * @returns {Object} Selector information
+ * @returns {string} .type - 'elementText', 'aria', 'id', 'data-testid', 'css', 'xpath'
+ * @returns {string} .value - The selector value
+ * @returns {string} .property - The property name to use ('elementText' or 'selector')
+ * @returns {string} .display - Human-readable description
+ */
+function determineOptimalSelector(elementData) {
+  // Priority 1: Element text (uses elementText property)
+  if (elementData.text && elementData.text.length > 0 && elementData.text.length < 100) {
+    return {
+      type: 'elementText',
+      value: elementData.text,
+      property: 'elementText',
+      display: `Text: "${elementData.text}"`
+    };
+  }
+
+  // Priority 2: ARIA label (uses selector with aria/ prefix)
+  if (elementData.ariaLabel) {
+    return {
+      type: 'aria',
+      value: `aria/${elementData.ariaLabel}`,
+      property: 'selector',
+      display: `ARIA label: "${elementData.ariaLabel}"`
+    };
+  }
+
+  // Priority 3: Element ID
+  if (elementData.id) {
+    return {
+      type: 'id',
+      value: `#${elementData.id}`,
+      property: 'selector',
+      display: `ID: #${elementData.id}`
+    };
+  }
+
+  // Priority 4: data-testid
+  if (elementData.dataTestId) {
+    return {
+      type: 'data-testid',
+      value: `[data-testid="${elementData.dataTestId}"]`,
+      property: 'selector',
+      display: `data-testid: "${elementData.dataTestId}"`
+    };
+  }
+
+  // Priority 5: Unique name attribute
+  if (elementData.name && elementData.matchCount === 1) {
+    return {
+      type: 'css',
+      value: `[name="${elementData.name}"]`,
+      property: 'selector',
+      display: `Name attribute: "${elementData.name}"`
+    };
+  }
+
+  // Priority 6: CSS selector
+  if (elementData.cssSelector) {
+    return {
+      type: 'css',
+      value: elementData.cssSelector,
+      property: 'selector',
+      display: `CSS: ${elementData.cssSelector}`
+    };
+  }
+
+  // Priority 7: XPath (last resort)
+  if (elementData.xpath) {
+    return {
+      type: 'xpath',
+      value: elementData.xpath,
+      property: 'selector',
+      display: `XPath: ${elementData.xpath}`
+    };
+  }
+
+  // Fallback: use tag name
+  return {
+    type: 'css',
+    value: elementData.tagName.toLowerCase(),
+    property: 'selector',
+    display: `Tag: ${elementData.tagName.toLowerCase()}`
+  };
+}
+
+/**
+ * Launches an interactive element picker in the browser.
+ * Injects JavaScript that highlights elements on hover and captures clicks.
+ *
+ * @param {Object} driver - WebDriver instance
+ * @returns {Promise<Object>} Selected element data and optimal selector
+ * @returns {string} .action - 'selected' or 'cancelled'
+ * @returns {Object} .elementData - Raw element data (if selected)
+ * @returns {Object} .selector - Optimal selector info (if selected)
+ */
+async function selectElementInBrowser(driver) {
+  console.log("\n" + "🎯".repeat(40));
+  console.log("BROWSER ELEMENT PICKER");
+  console.log("🎯".repeat(40));
+  console.log("\nHover over elements to highlight them.");
+  console.log("Click an element to select it.");
+  console.log("Press ESC to cancel.\n");
+
+  try {
+    const result = await driver.execute(function() {
+      return new Promise((resolve) => {
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'doc-detective-element-picker-overlay';
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.3);
+          z-index: 999998;
+          cursor: crosshair;
+        `;
+
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'doc-detective-tooltip';
+        tooltip.style.cssText = `
+          position: fixed;
+          background: #333;
+          color: #fff;
+          padding: 8px 12px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-family: monospace;
+          z-index: 1000000;
+          pointer-events: none;
+          display: none;
+          max-width: 400px;
+          word-break: break-all;
+        `;
+        document.body.appendChild(tooltip);
+
+        // Create highlight box
+        const highlight = document.createElement('div');
+        highlight.id = 'doc-detective-highlight';
+        highlight.style.cssText = `
+          position: absolute;
+          border: 2px solid #00ff00;
+          background: rgba(0, 255, 0, 0.1);
+          z-index: 999999;
+          pointer-events: none;
+          display: none;
+        `;
+        document.body.appendChild(highlight);
+
+        let lastElement = null;
+
+        // Generate unique CSS selector
+        function getCssSelector(el) {
+          if (el.id) return '#' + el.id;
+          
+          let path = [];
+          while (el && el.nodeType === Node.ELEMENT_NODE) {
+            let selector = el.nodeName.toLowerCase();
+            if (el.id) {
+              selector += '#' + el.id;
+              path.unshift(selector);
+              break;
+            } else {
+              let sibling = el;
+              let nth = 1;
+              while (sibling.previousElementSibling) {
+                sibling = sibling.previousElementSibling;
+                if (sibling.nodeName.toLowerCase() === selector) nth++;
+              }
+              if (nth > 1) selector += ':nth-of-type(' + nth + ')';
+              else if (el.className) {
+                const classes = Array.from(el.classList).filter(c => 
+                  c && !c.startsWith('doc-detective')
+                ).join('.');
+                if (classes) selector += '.' + classes;
+              }
+            }
+            path.unshift(selector);
+            el = el.parentNode;
+          }
+          return path.join(' > ');
+        }
+
+        // Generate XPath
+        function getXPath(el) {
+          if (el.id) return '//*[@id="' + el.id + '"]';
+          if (el === document.body) return '/html/body';
+          
+          let ix = 0;
+          const siblings = el.parentNode ? el.parentNode.childNodes : [];
+          for (let i = 0; i < siblings.length; i++) {
+            const sibling = siblings[i];
+            if (sibling === el) {
+              const tagName = el.tagName.toLowerCase();
+              return getXPath(el.parentNode) + '/' + tagName + '[' + (ix + 1) + ']';
+            }
+            if (sibling.nodeType === 1 && sibling.tagName === el.tagName) ix++;
+          }
+        }
+
+        // Mouse move handler
+        function onMouseMove(e) {
+          const target = document.elementFromPoint(e.clientX, e.clientY);
+          if (!target || target === overlay || target === tooltip || target === highlight) return;
+          
+          lastElement = target;
+          
+          // Update highlight
+          const rect = target.getBoundingClientRect();
+          highlight.style.display = 'block';
+          highlight.style.top = (window.scrollY + rect.top) + 'px';
+          highlight.style.left = (window.scrollX + rect.left) + 'px';
+          highlight.style.width = rect.width + 'px';
+          highlight.style.height = rect.height + 'px';
+          
+          // Update tooltip
+          const text = target.textContent.trim().substring(0, 50);
+          const selector = getCssSelector(target);
+          tooltip.textContent = selector + (text ? ': ' + text : '');
+          tooltip.style.display = 'block';
+          tooltip.style.top = (e.clientY + 20) + 'px';
+          tooltip.style.left = (e.clientX + 20) + 'px';
+        }
+
+        // Click handler
+        function onClick(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          
+          cleanup();
+          
+          if (!lastElement) {
+            resolve({ action: 'cancelled' });
+            return;
+          }
+          
+          // Extract element data
+          const text = lastElement.textContent.trim();
+          const cssSelector = getCssSelector(lastElement);
+          const xpath = getXPath(lastElement);
+          
+          // Count matches for this selector
+          let matchCount = 1;
+          try {
+            matchCount = document.querySelectorAll(cssSelector).length;
+          } catch (e) {
+            matchCount = 1;
+          }
+          
+          resolve({
+            action: 'selected',
+            elementData: {
+              id: lastElement.id || null,
+              tagName: lastElement.tagName,
+              text: text,
+              ariaLabel: lastElement.getAttribute('aria-label') || null,
+              name: lastElement.getAttribute('name') || null,
+              type: lastElement.getAttribute('type') || null,
+              role: lastElement.getAttribute('role') || null,
+              dataTestId: lastElement.getAttribute('data-testid') || null,
+              classes: Array.from(lastElement.classList),
+              cssSelector: cssSelector,
+              xpath: xpath,
+              matchCount: matchCount
+            }
+          });
+        }
+
+        // Keyboard handler
+        function onKeyDown(e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            cleanup();
+            resolve({ action: 'cancelled' });
+          }
+        }
+
+        // Cleanup function
+        function cleanup() {
+          overlay.remove();
+          tooltip.remove();
+          highlight.remove();
+          document.removeEventListener('mousemove', onMouseMove, true);
+          document.removeEventListener('click', onClick, true);
+          document.removeEventListener('keydown', onKeyDown, true);
+        }
+
+        // Attach listeners
+        document.addEventListener('mousemove', onMouseMove, true);
+        document.addEventListener('click', onClick, true);
+        document.addEventListener('keydown', onKeyDown, true);
+        
+        // Add overlay to DOM
+        document.body.appendChild(overlay);
+      });
+    });
+
+    if (result.action === 'cancelled') {
+      console.log("\nElement selection cancelled.\n");
+      return { action: 'cancelled' };
+    }
+
+    // Determine optimal selector
+    const selector = determineOptimalSelector(result.elementData);
+    
+    console.log("\n" + "─".repeat(80));
+    console.log("SELECTED ELEMENT");
+    console.log("─".repeat(80));
+    console.log(`Tag: ${result.elementData.tagName}`);
+    console.log(`Selector: ${selector.display}`);
+    if (result.elementData.text) {
+      console.log(`Text: "${result.elementData.text.substring(0, 100)}"`);
+    }
+    console.log("─".repeat(80) + "\n");
+
+    return {
+      action: 'selected',
+      elementData: result.elementData,
+      selector: selector
+    };
+  } catch (error) {
+    console.error("Error during element selection:", error.message);
+    return { action: 'error', error: error.message };
+  }
+}
+
+/**
+ * Helper function to offer browser element selection when editing selector or elementText fields.
+ *
+ * @param {string} keyName - The key being edited ('selector' or 'elementText')
+ * @param {*} currentValue - Current value of the field
+ * @param {Object} driver - WebDriver instance (optional)
+ * @returns {Promise<*>} New value for the field
+ */
+async function editSelectorWithBrowserPick(keyName, currentValue, driver) {
+  if (!driver) {
+    // No driver available, just do regular string input
+    const newValue = await queryUser(`Edit "${keyName}":`, {
+      type: "input",
+      defaultValue: currentValue === null ? "null" : String(currentValue),
+    });
+    return newValue === "null" ? null : newValue;
+  }
+
+  // Offer browser selection option
+  const editChoice = await queryUser(`Edit "${keyName}":`, {
+    type: "list",
+    choices: [
+      "Enter value manually",
+      "🎯 Select element in browser",
+      "Set to null"
+    ],
+    defaultValue: "Enter value manually"
+  });
+
+  if (editChoice === "Set to null") {
+    return null;
+  } else if (editChoice === "🎯 Select element in browser") {
+    const result = await selectElementInBrowser(driver);
+    
+    if (result.action === 'cancelled' || result.action === 'error') {
+      // User cancelled or error occurred, fall back to manual entry
+      return editSelectorWithBrowserPick(keyName, currentValue, driver);
+    }
+
+    // Return the appropriate value based on the key name
+    if (keyName === 'elementText' || result.selector.property === 'elementText') {
+      return result.selector.type === 'elementText' ? result.selector.value : result.elementData.text || currentValue;
+    } else {
+      // For 'selector' key, return the selector value
+      return result.selector.value;
+    }
+  } else {
+    // Manual entry
+    const newValue = await queryUser(`Enter value for "${keyName}":`, {
+      type: "input",
+      defaultValue: currentValue === null ? "null" : String(currentValue),
+    });
+    return newValue === "null" ? null : newValue;
+  }
 }
 
 /**
@@ -456,11 +1062,12 @@ async function queryUser(message, options = {}) {
  * @param {Object} step - The proposed step with low confidence
  * @param {number} confidence - Confidence score (0-1)
  * @param {Object} browserContext - Current browser context
+ * @param {Object} driver - WebDriver instance
  * @returns {Promise<Object>} Result object with action and potentially modified step
  * @returns {string} .action - 'continue', 'modify', 'skip', 'abort'
  * @returns {Object} .step - Modified step if action is 'continue' or 'modify'
  */
-async function queryLowConfidenceStep(step, confidence, browserContext) {
+async function queryLowConfidenceStep(step, confidence, browserContext, driver = null) {
   console.log("\n" + "⚠".repeat(40));
   console.log("Next step...");
   console.log("⚠".repeat(40));
@@ -483,7 +1090,7 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
   );
 
   if (action === "Edit the JSON manually") {
-    const editedStep = await editJsonInteractive(JSON.parse(JSON.stringify(step)), ["Step"]);
+    const editedStep = await editJsonInteractive(JSON.parse(JSON.stringify(step)), ["Step"], driver);
     
     console.log("\nEdited step:");
     console.log(JSON.stringify(editedStep, null, 2));
@@ -500,7 +1107,7 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
       return queryLowConfidenceStep(step, confidence, browserContext);
     }
   } else if (action === "Insert a step before this one") {
-    const insertedStep = await queryInsertStep(browserContext);
+    const insertedStep = await queryInsertStep(browserContext, driver);
 
     if (insertedStep.action === "abort") {
       return { action: "abort" };
@@ -539,7 +1146,7 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
     if (secondAction === "Continue with this step") {
       return { action: "continue", step };
     } else if (secondAction === "Insert a step before this one") {
-      const insertedStep = await queryInsertStep(browserContext);
+      const insertedStep = await queryInsertStep(browserContext, driver);
 
       if (insertedStep.action === "abort") {
         return { action: "abort" };
@@ -574,11 +1181,12 @@ async function queryLowConfidenceStep(step, confidence, browserContext) {
  * Provides common step templates or allows custom JSON input.
  *
  * @param {Object} browserContext - Current browser context for reference
+ * @param {Object} driver - Optional WebDriver instance for browser element selection
  * @returns {Promise<Object>} Result object with action and step
  * @returns {string} .action - 'continue', 'cancel', or 'abort'
  * @returns {Object} .step - The inserted step (if action is 'continue')
  */
-async function queryInsertStep(browserContext) {
+async function queryInsertStep(browserContext, driver = null) {
   console.log("\n" + "➕".repeat(40));
   console.log("INSERT STEP BEFORE CURRENT ONE");
   console.log("➕".repeat(40));
@@ -627,10 +1235,10 @@ async function queryInsertStep(browserContext) {
   let stepObject;
   
   if (templateChoice === "Enter custom JSON") {
-    stepObject = await editJsonInteractive({}, ["New Step"]);
+    stepObject = await editJsonInteractive({}, ["New Step"], driver);
   } else {
     const template = templates[templateChoice];
-    stepObject = await editJsonInteractive(JSON.parse(JSON.stringify(template)), ["New Step"]);
+    stepObject = await editJsonInteractive(JSON.parse(JSON.stringify(template)), ["New Step"], driver);
   }
 
   // Display and confirm the step
@@ -651,7 +1259,7 @@ async function queryInsertStep(browserContext) {
     });
 
     if (retry) {
-      return queryInsertStep(browserContext);
+      return queryInsertStep(browserContext, driver);
     } else {
       return { action: "cancel" };
     }
@@ -820,4 +1428,8 @@ module.exports = {
   queryCredentials,
   queryStepFailure,
   queryInitialUrl,
+  selectElementInBrowser,
+  determineOptimalSelector,
+  editJsonInteractive,
+  editArrayInteractive,
 };

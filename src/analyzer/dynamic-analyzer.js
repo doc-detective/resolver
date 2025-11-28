@@ -202,7 +202,7 @@ async function dynamicAnalyze({document, config, DocDetectiveRunner}) {
 
       // Query user if confidence is low
       // if (confidence < userQueryThreshold) {
-        const userDecision = await queryLowConfidenceStep(refinedStep, confidence, browserContext);
+        const userDecision = await queryLowConfidenceStep(refinedStep, confidence, browserContext, DocDetectiveRunner.driver);
         
         metadata.userInterventions.push({
           type: 'low_confidence',
