@@ -217,7 +217,14 @@ function copyAndRewriteDitamap(originalPath, commonAncestor) {
   }
 
   const originalDir = path.dirname(originalPath);
-  const newDitamapPath = path.join(commonAncestor, path.basename(originalPath));
+  let newDitamapPath = path.join(commonAncestor, path.basename(originalPath));
+
+  // Avoid overwriting the original file
+  if (path.resolve(newDitamapPath) === path.resolve(originalPath)) {
+    const baseName = path.basename(originalPath, path.extname(originalPath));
+    const ext = path.extname(originalPath);
+    newDitamapPath = path.join(commonAncestor, `${baseName}_rewritten${ext}`);
+  }
 
   // Use regex to find and replace href attributes while preserving formatting
   // Match href attributes in topicref and mapref elements
