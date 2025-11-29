@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map>
+  <title>Test Map with Parent and Sibling References</title>
+  <topicref href="../parent-topics/parent-topic.dita"/>
+  <topicref href="../sibling-topics/sibling-topic.dita"/>
+  <topicref href="../sibling-topics/nested/nested-topic.dita"/>
+</map>

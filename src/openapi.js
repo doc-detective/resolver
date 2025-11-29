@@ -1,7 +1,18 @@
 const { replaceEnvs } = require("./utils");
 const { JSONSchemaFaker } = require("json-schema-faker");
 const { readFile } = require("doc-detective-common");
-const parser = require("@apidevtools/json-schema-ref-parser");
+
+// Support both CommonJS and ESM imports
+let parser;
+try {
+  parser = require("@apidevtools/json-schema-ref-parser");
+} catch (err) {
+  // If CJS fails, try ESM dynamic import
+  (async () => {
+    parser = await import("@apidevtools/json-schema-ref-parser");
+    parser = parser.default || parser;
+  })();
+}
 
 JSONSchemaFaker.option({ requiredOnly: true });
 
