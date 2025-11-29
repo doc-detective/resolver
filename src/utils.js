@@ -423,7 +423,7 @@ async function qualifyFiles({ config }) {
     let isDir = fs.statSync(source).isDirectory();
 
     // If ditamap, process with `dita` to build files, then add output directory to dirs array
-    if (isFile && path.extname(source) === ".ditamap" && config.processDitaMap) {
+    if (isFile && path.extname(source) === ".ditamap" && config.processDitaMaps) {
       const ditaOutput = await processDitaMap({config, source});
       if (ditaOutput) {
         // Add output directory to to sequence right after the ditamap file
@@ -527,7 +527,12 @@ async function processDitaMap({config, source}) {
     return null;
   }
 
-  const ditaOutputDir = await spawnCommand("dita", ["-i", source, "-f", "dita", "-o", outputDir]);
+  // Set the working directory to where the ditamap is located (rewritten or original)
+  const workingDir = copiedDitamapPath ? path.dirname(copiedDitamapPath) : path.dirname(source);
+  
+  const ditaOutputDir = await spawnCommand("dita", ["-i", source, "-f", "dita", "-o", outputDir], {
+    cwd: workingDir,
+  });
   
   // Clean up the copied ditamap immediately after processing
   if (copiedDitamapPath && fs.existsSync(copiedDitamapPath)) {
