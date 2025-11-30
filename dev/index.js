@@ -1,6 +1,6 @@
 const { detectTests, resolveTests, detectAndResolveTests } = require("../src");
 const { analyze, dynamicAnalyze } = require("../src/analyzer/dynamic-analyzer");
-const { getDriver } = require("../../doc-detective-core");
+const { getRunner } = require("../../doc-detective-core");
 const { validate, schemas } = require("doc-detective-common");
 const { execCommand, spawnCommand } = require("../src/utils");
 const path = require("path");
@@ -29,7 +29,7 @@ async function main() {
   // result = await detectTests({ config: json });
   const documentation =
     "Sign in to Heretto CCMS with the credentials provided to you. In the left pane, in the Browse tab, click the Content folder. Click Create a new folder and add a new folder named Testing. In the Testing folder, create a personal testing folder. Follow this naming convention Surname_Name.";
-  const DocDetectiveRunner = await getDriver({
+  const DocDetectiveRunner = await getRunner({
     headless: false,
   });
   const result = await dynamicAnalyze({
@@ -42,7 +42,7 @@ async function main() {
       userQueryThreshold: 0.7,
       maxRetries: 3,
     },
-    DocDetectiveRunner: DocDetectiveRunner
+    DocDetectiveRunner: DocDetectiveRunner,
   });
   await DocDetectiveRunner.cleanup();
 
