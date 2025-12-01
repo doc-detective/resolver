@@ -48,7 +48,13 @@ function parseXmlAttributes({ stringifiedObject }) {
   
   // Trim the string
   const str = stringifiedObject.trim();
-  
+    
+  // Check if it looks like JSON or YAML - if so, return null to let JSON/YAML parsers handle it
+  // JSON starts with { or [
+  if (str.startsWith('{') || str.startsWith('[')) {
+    return null;
+  }
+
   // Check if it looks like YAML (key: value pattern outside of quotes)
   // This regex checks for word followed by colon and space/newline, not inside quotes
   const yamlPattern = /^\w+:\s/;
