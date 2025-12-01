@@ -227,17 +227,38 @@ function copyAndRewriteDitamap(originalPath, commonAncestor) {
   }
 
   // Use regex to find and replace href attributes while preserving formatting
-  // Match href attributes in topicref and mapref elements
-  const hrefRegex = /(<(?:topicref|mapref)[^>]*\s+href=")([^"]+)(")/g;
+  // Match href attributes in any DITA element (topicref, mapref, keydef, topichead, relcell, etc.)
+  // This pattern matches: href="value" in any XML element
+  const hrefRegex = /(href=")([^"]+)(")/g;
+  
+  // Track missing files for reporting
+  const missingFiles = [];
   
   let newXmlContent = xmlContent.replace(hrefRegex, (match, prefix, href, suffix) => {
-    // Skip external references
-    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//")) {
+    // Skip external references (http, https, ftp, etc.)
+    if (href.startsWith("http://") || href.startsWith("https://") || href.startsWith("//") || href.startsWith("ftp://")) {
+      return match;
+    }
+    
+    // Skip absolute file:// URIs - these should not be rewritten
+    if (href.startsWith("file:/")) {
+      return match;
+    }
+    
+    // Skip references that look like hashes/IDs (no file extension and contains only hex characters)
+    if (/^[a-f0-9]{32,}\.ditamap$/i.test(path.basename(href))) {
       return match;
     }
 
     // Resolve the old absolute path
     const oldAbsolutePath = path.resolve(originalDir, href);
+    
+    // Check if the referenced file exists
+    if (!fs.existsSync(oldAbsolutePath)) {
+      missingFiles.push({ href, expectedPath: oldAbsolutePath });
+      // Don't rewrite if source file doesn't exist - let DITA-OT handle the error
+      return match;
+    }
     
     // Calculate new relative path from the new ditamap location
     const newRelativePath = path.relative(commonAncestor, oldAbsolutePath);
@@ -245,8 +266,34 @@ function copyAndRewriteDitamap(originalPath, commonAncestor) {
     // Normalize to forward slashes for consistency
     const normalizedPath = newRelativePath.replace(/\\/g, "/");
     
+    // Verify the file exists at the rewritten location when accessed from common ancestor
+    const rewrittenAbsolutePath = path.resolve(commonAncestor, normalizedPath);
+    if (!fs.existsSync(rewrittenAbsolutePath)) {
+      missingFiles.push({ 
+        href, 
+        originalPath: oldAbsolutePath, 
+        rewrittenPath: rewrittenAbsolutePath,
+        rewrittenRelativePath: normalizedPath
+      });
+      // Don't rewrite if target location doesn't exist
+      return match;
+    }
+    
     return prefix + normalizedPath + suffix;
   });
+  
+  // Report missing files as a warning rather than throwing an error
+  // This allows the DITA processor to handle missing files according to its own rules
+  if (missingFiles.length > 0) {
+    const missingFilesList = missingFiles.map(f => {
+      if (f.rewrittenPath) {
+        return `  - ${f.href}\n    Original: ${f.originalPath}\n    Rewritten: ${f.rewrittenPath} (relative: ${f.rewrittenRelativePath})`;
+      } else {
+        return `  - ${f.href}\n    Expected at: ${f.expectedPath}`;
+      }
+    }).join('\n');
+    console.warn(`Warning: Some referenced files in ditamap do not exist:\n${missingFilesList}`);
+  }
 
   try {
     // Write the rewritten ditamap to the new location
