@@ -885,3 +885,132 @@ detectSteps: true
     expect(codeblockStep).to.exist;
   });
 });
+
+describe("DITA Parent/Sibling Reference Integration", function () {
+  const path = require("path");
+  const { parseDitamap, findCommonAncestor, copyAndRewriteDitamap } = require("./utils");
+
+  it("should handle complete flow for ditamap with parent/sibling references", function () {
+    const testDataDir = path.join(__dirname, "..", "test", "data", "dita", "parent-sibling-refs");
+    const mapsDir = path.join(testDataDir, "maps");
+    const ditamapPath = path.join(mapsDir, "test-map.ditamap");
+
+    // Step 1: Parse ditamap to extract all referenced files
+    const referencedFiles = parseDitamap(ditamapPath);
+    expect(referencedFiles).to.be.an("array").with.lengthOf(3);
+
+    // Step 2: Check if any references require parent traversal
+    const sourceDir = path.dirname(path.resolve(ditamapPath));
+    const needsRewrite = referencedFiles.some(refPath => {
+      const relativePath = path.relative(sourceDir, refPath);
+      return relativePath.startsWith("..");
+    });
+
+    expect(needsRewrite).to.be.true;
+
+    // Step 3: Find common ancestor directory
+    const commonAncestor = findCommonAncestor(ditamapPath, referencedFiles);
+    expect(commonAncestor).to.equal(testDataDir);
+
+    // Step 4: Copy and rewrite ditamap
+    const newDitamapPath = copyAndRewriteDitamap(ditamapPath, commonAncestor);
+    
+    try {
+      expect(fs.existsSync(newDitamapPath)).to.be.true;
+      
+      // Step 5: Verify rewritten paths don't use parent traversal
+      const newContent = fs.readFileSync(newDitamapPath, "utf8");
+      expect(newContent).to.not.include('href="..');
+      expect(newContent).to.include('href="parent-topics/parent-topic.dita"');
+      expect(newContent).to.include('href="sibling-topics/sibling-topic.dita"');
+      
+      // Step 6: Verify all paths are now relative to common ancestor
+      const newSourceDir = path.dirname(newDitamapPath);
+      expect(newSourceDir).to.equal(commonAncestor);
+    } finally {
+      // Clean up
+      if (fs.existsSync(newDitamapPath)) {
+        fs.unlinkSync(newDitamapPath);
+      }
+    }
+  });
+
+  it("should handle ditamap with nested mapref references", function () {
+    const testDataDir = path.join(__dirname, "..", "test", "data", "dita", "parent-sibling-refs");
+    const mapsDir = path.join(testDataDir, "maps");
+    const ditamapPath = path.join(mapsDir, "main-map-with-mapref.ditamap");
+
+    // Parse ditamap recursively
+    const referencedFiles = parseDitamap(ditamapPath);
+    
+    // Should include files from both main map and nested map
+    expect(referencedFiles.length).to.be.greaterThan(0);
+    
+    const parentTopic = path.join(testDataDir, "parent-topics", "parent-topic.dita");
+    const siblingTopic = path.join(testDataDir, "sibling-topics", "sibling-topic.dita");
+    
+    expect(referencedFiles).to.include(parentTopic);
+    expect(referencedFiles).to.include(siblingTopic);
+    
+    // Find common ancestor and rewrite
+    const commonAncestor = findCommonAncestor(ditamapPath, referencedFiles);
+    const newDitamapPath = copyAndRewriteDitamap(ditamapPath, commonAncestor);
+    
+    try {
+      expect(fs.existsSync(newDitamapPath)).to.be.true;
+      
+      const newContent = fs.readFileSync(newDitamapPath, "utf8");
+      
+      // Verify paths are rewritten correctly
+      expect(newContent).to.include('href="parent-topics/parent-topic.dita"');
+      expect(newContent).to.include('href="maps/nested-map.ditamap"');
+    } finally {
+      // Clean up
+      if (fs.existsSync(newDitamapPath)) {
+        fs.unlinkSync(newDitamapPath);
+      }
+    }
+  });
+
+  it("should not rewrite ditamap when no parent traversal is needed", function () {
+    // Create a simple ditamap in temp directory with local references only
+    const tempDir = path.join(__dirname, "..", "test", "data", "dita");
+    const localDitamapPath = path.join(tempDir, "local-refs-test.ditamap");
+    const localTopicPath = path.join(tempDir, "local-topic.dita");
+    
+    // Create a local topic file
+    fs.writeFileSync(localTopicPath, `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="local_topic">
+  <title>Local Topic</title>
+  <body><p>Test</p></body>
+</topic>`, "utf8");
+    
+    // Create ditamap referencing local topic
+    fs.writeFileSync(localDitamapPath, `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map>
+  <title>Local References</title>
+  <topicref href="local-topic.dita"/>
+</map>`, "utf8");
+    
+    try {
+      const referencedFiles = parseDitamap(localDitamapPath);
+      
+      // Check if parent traversal is needed
+      const sourceDir = path.dirname(path.resolve(localDitamapPath));
+      const needsRewrite = referencedFiles.some(refPath => {
+        const relativePath = path.relative(sourceDir, refPath);
+        return relativePath.startsWith("..");
+      });
+      
+      // Should not need rewrite since all references are local
+      expect(needsRewrite).to.be.false;
+    } finally {
+      // Clean up
+      if (fs.existsSync(localDitamapPath)) fs.unlinkSync(localDitamapPath);
+      if (fs.existsSync(localTopicPath)) fs.unlinkSync(localTopicPath);
+    }
+  });
+});
+

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="parent_topic">
+  <title>Parent Topic</title>
+  <!-- test
+testId: parent-topic-test
+detectSteps: false
+-->
+  <body>
+    <p>This is a topic in a parent directory.</p>
+    <!-- step checkLink: "https://example.com/parent" -->
+  </body>
+  <!-- test end-->
+</topic>
