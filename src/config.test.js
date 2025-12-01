@@ -502,3 +502,43 @@ describe("resolveConcurrentRunners", function () {
     expect(result.concurrentRunners).to.equal(4);
   });
 });
+
+describe("crawl config field", function () {
+  it("should preserve crawl field through validation", async function () {
+    const inputConfig = { 
+      input: ["https://example.com"], 
+      crawl: true,
+      logLevel: "info",
+      fileTypes: ["markdown"]
+    };
+    
+    const result = await setConfig({ config: inputConfig });
+    
+    expect(result.crawl).to.equal(true);
+  });
+
+  it("should handle crawl field set to false", async function () {
+    const inputConfig = { 
+      input: ["https://example.com"], 
+      crawl: false,
+      logLevel: "info",
+      fileTypes: ["markdown"]
+    };
+    
+    const result = await setConfig({ config: inputConfig });
+    
+    expect(result.crawl).to.equal(false);
+  });
+
+  it("should default crawl field to false when not specified", async function () {
+    const inputConfig = { 
+      input: ["https://example.com"], 
+      logLevel: "info",
+      fileTypes: ["markdown"]
+    };
+    
+    const result = await setConfig({ config: inputConfig });
+    
+    expect(result.crawl).to.equal(false);
+  });
+});
