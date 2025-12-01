@@ -61,6 +61,10 @@ function parseXmlAttributes({ stringifiedObject }) {
   if (yamlPattern.test(str)) {
     return null;
   }
+  // Check if it looks like a YAML array (starts with '-')
+  if (str.startsWith("-")) {
+    return null;
+  }
 
   // Parse XML-style attributes
   const result = {};
