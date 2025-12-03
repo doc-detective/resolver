@@ -503,7 +503,7 @@ async function setConfig({ config }) {
     } catch (error) {
       log(
         config,
-        "warn",
+        "warning",
         `Invalid JSON in DOC_DETECTIVE environment variable: ${error.message}. Ignoring config overrides.`
       );
     }
