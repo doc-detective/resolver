@@ -611,8 +611,14 @@ async function parseContent({ config, content, filePath, fileType }) {
           // If the testId doesn't exist, set it
           test.testId = `${testId}`;
         }
+        // Normalize detectSteps field
+        if (test.detectSteps === "false") {
+          test.detectSteps = false;
+        } else if (test.detectSteps === "true") {
+          test.detectSteps = true;
+        }
+        // If the test doesn't have steps, add an empty array
         if (!test.steps) {
-          // If the test doesn't have steps, add an empty array
           test.steps = [];
         }
         tests.push(test);
