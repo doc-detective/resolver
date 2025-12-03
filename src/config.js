@@ -327,7 +327,7 @@ let defaultFileTypes = {
         "\\[comment\\]:\\s+#\\s+'test\\s*(.*?)\\s*'",
         "\\[comment\\]:\\s+#\\s+'test start\\s*(.*?)\\s*'",
         // CommonMark comment syntax with double quotes: [comment]: # "test ..."
-        // Uses (?:[^"\\]|\\.)* to handle escaped quotes within the content
+        // Uses (?:[^"\\\\]|\\\\.)* to handle escaped quotes within the content
         '\\[comment\\]:\\s+#\\s+"test\\s*((?:[^"\\\\]|\\\\.)*)\\s*"',
         '\\[comment\\]:\\s+#\\s+"test start\\s*((?:[^"\\\\]|\\\\.)*)\\s*"',
       ],
@@ -369,7 +369,7 @@ let defaultFileTypes = {
         // CommonMark comment syntax with single quotes: [comment]: # 'step ...'
         "\\[comment\\]:\\s+#\\s+'step\\s*(.*?)\\s*'",
         // CommonMark comment syntax with double quotes: [comment]: # "step ..."
-        // Uses (?:[^"\\]|\\.)* to handle escaped quotes within the content
+        // Uses (?:[^"\\\\]|\\\\.)* to handle escaped quotes within the content
         '\\[comment\\]:\\s+#\\s+"step\\s*((?:[^"\\\\]|\\\\.)*)\\s*"',
       ],
     },

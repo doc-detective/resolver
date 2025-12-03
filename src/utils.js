@@ -142,7 +142,7 @@ function parseObject({ stringifiedObject }) {
         trimmedString.includes('\\"');
 
       if (looksLikeEscapedJson) {
-        let stringToParse = stringifiedObject;
+        let stringToParse;
         try {
           // Attempt to parse as double-encoded JSON
           stringToParse = JSON.parse('"' + stringifiedObject + '"');
