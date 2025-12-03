@@ -130,19 +130,23 @@ function parseObject({ stringifiedObject }) {
       return xmlAttrs;
     }
 
-    const trimmedString = stringifiedObject.trim();
+    let stringToParse = stringifiedObject;
 
-    // Check if this looks like escaped JSON (starts with { or [ and contains \")
-    // This handles cases like: [comment]: # "test {\"key\": \"value\"}"
-    // Only unescape when we have JSON-like content with escaped quotes
+    // Check if this looks like escaped JSON
+    const trimmedString = stringifiedObject.trim();
     const looksLikeEscapedJson =
       (trimmedString.startsWith("{") || trimmedString.startsWith("[")) &&
       trimmedString.includes('\\"');
 
-    const stringToParse = looksLikeEscapedJson
-      ? stringifiedObject.replace(/\\"/g, '"')
-      : stringifiedObject;
-
+    if (looksLikeEscapedJson) {
+      try {
+        // Attempt to parse as double-encoded JSON first
+        stringToParse = JSON.parse('"' + stringifiedObject + '"');
+      } catch {
+        // Fallback to simple quote replacement for basic cases
+        stringToParse = stringifiedObject.replace(/\\"/g, '"');
+      }
+    }
     // If string, try to parse as JSON or YAML
     try {
       const json = JSON.parse(stringToParse);
