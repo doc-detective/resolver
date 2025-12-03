@@ -130,30 +130,37 @@ function parseObject({ stringifiedObject }) {
       return xmlAttrs;
     }
 
-    let stringToParse = stringifiedObject;
-
-    // Check if this looks like escaped JSON
-    const trimmedString = stringifiedObject.trim();
-    const looksLikeEscapedJson =
-      (trimmedString.startsWith("{") || trimmedString.startsWith("[")) &&
-      trimmedString.includes('\\"');
-
-    if (looksLikeEscapedJson) {
-      try {
-        // Attempt to parse as double-encoded JSON first
-        stringToParse = JSON.parse('"' + stringifiedObject + '"');
-      } catch {
-        // Fallback to simple quote replacement for basic cases
-        stringToParse = stringifiedObject.replace(/\\"/g, '"');
-      }
-    }
-    // If string, try to parse as JSON or YAML
+    // Try to parse as JSON first (handles valid JSON including those with escaped quotes in string values)
     try {
-      const json = JSON.parse(stringToParse);
+      const json = JSON.parse(stringifiedObject);
       return json;
     } catch (jsonError) {
+      // JSON parsing failed - check if this looks like escaped/double-encoded JSON
+      const trimmedString = stringifiedObject.trim();
+      const looksLikeEscapedJson =
+        (trimmedString.startsWith("{") || trimmedString.startsWith("[")) &&
+        trimmedString.includes('\\"');
+
+      if (looksLikeEscapedJson) {
+        let stringToParse = stringifiedObject;
+        try {
+          // Attempt to parse as double-encoded JSON
+          stringToParse = JSON.parse('"' + stringifiedObject + '"');
+        } catch {
+          // Fallback to simple quote replacement for basic cases
+          stringToParse = stringifiedObject.replace(/\\"/g, '"');
+        }
+        try {
+          const json = JSON.parse(stringToParse);
+          return json;
+        } catch {
+          // Fall through to YAML parsing
+        }
+      }
+
+      // Try YAML as final fallback
       try {
-        const yaml = YAML.parse(stringToParse);
+        const yaml = YAML.parse(stringifiedObject);
         return yaml;
       } catch (yamlError) {
         throw new Error("Invalid JSON or YAML format");
