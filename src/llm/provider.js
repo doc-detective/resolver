@@ -129,6 +129,34 @@ async function analyzeSegment(segment, prompt, config) {
       actions = [];
     }
 
+    let actionsValidated = false;
+    while (!actionsValidated) {
+      const validation = validate({ schemaKey: "test_v3", object: { steps: actions } });
+      if (validation.valid) {
+        actionsValidated = true;
+      } else {
+        console.warn(
+          `LLM response validation failed: ${JSON.stringify(validation.errors)}`
+        );
+        // Attempt to fix by re-prompting the model
+        const fixPrompt = `${prompt}
+The previous response did not conform to the required schema. Please correct the response to match the schema and provide only the JSON object with the "steps" field.`;
+        const fixResult = await generateObject({
+          model,
+          prompt: fixPrompt,
+          temperature: config.temperature ?? 0.1,
+          maxTokens: config.maxTokens ?? 4000,
+          output: "object",
+          mode: "json",
+          schema: schema,
+          schemaDescription: "An array of Doc Detective v3 steps.",
+        });
+        if (fixResult.object && fixResult.object.steps) {
+          actions = fixResult.object.steps;
+        }
+      }
+    }
+
     return {
       actions,
       metadata: {
