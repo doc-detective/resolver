@@ -88,7 +88,7 @@ describe("Heretto Integration", function () {
 
       const scenarioParameters = {
         content: [
-          { name: "transtype", options: [{ value: "dita" }] },
+          { name: "transtype", value: "dita" },
           { name: "tool-kit-name", value: "default/dita-ot-3.6.1" },
           { type: "file_uuid_picker", value: "file-uuid-456" },
         ],
@@ -100,7 +100,7 @@ describe("Heretto Integration", function () {
         })
         .onSecondCall().resolves({ data: scenarioParameters });
 
-      const result = await heretto.findScenario(mockClient, mockLog, mockConfig);
+      const result = await heretto.findScenario(mockClient, mockLog, mockConfig, "Doc Detective");
 
       expect(result).to.deep.equal({ scenarioId: "scenario-123", fileId: "file-uuid-456" });
       expect(mockClient.get.calledTwice).to.be.true;
@@ -112,7 +112,7 @@ describe("Heretto Integration", function () {
         data: { content: [{ id: "other", name: "Other Scenario" }] },
       });
 
-      const result = await heretto.findScenario(mockClient, mockLog, mockConfig);
+      const result = await heretto.findScenario(mockClient, mockLog, mockConfig, "Doc Detective");
 
       expect(result).to.be.null;
       expect(mockClient.get.calledOnce).to.be.true;
@@ -122,7 +122,7 @@ describe("Heretto Integration", function () {
     it("should return null if scenario fetch fails", async function () {
       mockClient.get.rejects(new Error("Network error"));
 
-      const result = await heretto.findScenario(mockClient, mockLog, mockConfig);
+      const result = await heretto.findScenario(mockClient, mockLog, mockConfig, "Doc Detective");
 
       expect(result).to.be.null;
     });
@@ -147,7 +147,7 @@ describe("Heretto Integration", function () {
         })
         .onSecondCall().resolves({ data: scenarioParameters });
 
-      const result = await heretto.findScenario(mockClient, mockLog, mockConfig);
+      const result = await heretto.findScenario(mockClient, mockLog, mockConfig, "Doc Detective");
 
       expect(result).to.be.null;
     });
@@ -172,7 +172,7 @@ describe("Heretto Integration", function () {
         })
         .onSecondCall().resolves({ data: scenarioParameters });
 
-      const result = await heretto.findScenario(mockClient, mockLog, mockConfig);
+      const result = await heretto.findScenario(mockClient, mockLog, mockConfig, "Doc Detective");
 
       expect(result).to.be.null;
     });
@@ -196,7 +196,7 @@ describe("Heretto Integration", function () {
         })
         .onSecondCall().resolves({ data: scenarioParameters });
 
-      const result = await heretto.findScenario(mockClient, mockLog, mockConfig);
+      const result = await heretto.findScenario(mockClient, mockLog, mockConfig, "Doc Detective");
 
       expect(result).to.be.null;
     });
@@ -339,7 +339,7 @@ describe("Heretto Integration", function () {
     it("should export expected constants", function () {
       expect(heretto.POLLING_INTERVAL_MS).to.equal(5000);
       expect(heretto.POLLING_TIMEOUT_MS).to.equal(300000);
-      expect(heretto.SCENARIO_NAME).to.equal("Doc Detective");
+      expect(heretto.DEFAULT_SCENARIO_NAME).to.equal("Doc Detective");
     });
   });
 });
