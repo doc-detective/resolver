@@ -80,7 +80,8 @@ async function getPublishingScenarioParameters(client, scenarioId) {
  * @param {Object} client - Configured axios instance
  * @param {Function} log - Logging function
  * @param {Object} config - Doc Detective config for logging
- * @returns {Promise<Object|null>} Scenario object or null if creation failed
+ * @param {string} scenarioName - Name of the scenario to find
+ * @returns {Promise<Object|null>} Object with scenarioId and fileId, or null if not found or invalid
  */
 async function findScenario(client, log, config, scenarioName) {
   try {
@@ -289,10 +290,29 @@ async function downloadAndExtractOutput(
     const zipPath = path.join(tempDir, `heretto_${hash}.zip`);
     fs.writeFileSync(zipPath, response.data);
 
-    // Extract ZIP contents
+    // Extract ZIP contents with path traversal protection
     log(config, "debug", `Extracting output to ${outputDir}...`);
     const zip = new AdmZip(zipPath);
-    zip.extractAllTo(outputDir, true);
+    const resolvedOutputDir = path.resolve(outputDir);
+    
+    // Validate and extract entries safely to prevent zip slip attacks
+    for (const entry of zip.getEntries()) {
+      const entryPath = path.join(outputDir, entry.entryName);
+      const resolvedPath = path.resolve(entryPath);
+      
+      // Ensure the resolved path is within outputDir
+      if (!resolvedPath.startsWith(resolvedOutputDir + path.sep) && resolvedPath !== resolvedOutputDir) {
+        log(config, "warning", `Skipping potentially malicious ZIP entry: ${entry.entryName}`);
+        continue;
+      }
+      
+      if (entry.isDirectory) {
+        fs.mkdirSync(resolvedPath, { recursive: true });
+      } else {
+        fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+        fs.writeFileSync(resolvedPath, entry.getData());
+      }
+    }
 
     // Clean up ZIP file
     fs.unlinkSync(zipPath);

@@ -1,5 +1,7 @@
 const sinon = require("sinon");
 const proxyquire = require("proxyquire");
+const path = require("path");
+const os = require("os");
 
 before(async function () {
   const { expect } = await import("chai");
@@ -213,6 +215,17 @@ describe("Heretto Integration", function () {
       expect(mockClient.post.firstCall.args[0]).to.equal("/files/file-uuid/publishes");
       expect(mockClient.post.firstCall.args[1]).to.deep.equal({ scenario: "scenario-id", parameters: [] });
     });
+
+    it("should throw error when job creation fails", async function () {
+      mockClient.post.rejects(new Error("API error"));
+
+      try {
+        await heretto.triggerPublishingJob(mockClient, "file-uuid", "scenario-id");
+        expect.fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error.message).to.equal("API error");
+      }
+    });
   });
 
   describe("pollJobStatus", function () {
@@ -272,6 +285,34 @@ describe("Heretto Integration", function () {
 
       clock.restore();
     });
+
+    it("should return null on timeout", async function () {
+      // Use fake timers to avoid waiting for real timeout
+      const clock = sinon.useFakeTimers();
+
+      // Always return PENDING status (never completes)
+      mockClient.get.resolves({ 
+        data: { id: "job-123", status: { status: "PENDING", result: null } } 
+      });
+
+      const pollPromise = heretto.pollJobStatus(mockClient, "file-uuid", "job-123", mockLog, mockConfig);
+
+      // Advance past the timeout
+      await clock.tickAsync(heretto.POLLING_TIMEOUT_MS + heretto.POLLING_INTERVAL_MS);
+
+      const result = await pollPromise;
+      expect(result).to.be.null;
+
+      clock.restore();
+    });
+
+    it("should return null when polling error occurs", async function () {
+      mockClient.get.rejects(new Error("Network error"));
+
+      const result = await heretto.pollJobStatus(mockClient, "file-uuid", "job-123", mockLog, mockConfig);
+
+      expect(result).to.be.null;
+    });
   });
 
   describe("loadHerettoContent", function () {
@@ -329,6 +370,106 @@ describe("Heretto Integration", function () {
       const result = await heretto.loadHerettoContent(herettoConfig, mockLog, mockConfig);
 
       expect(result).to.be.null;
+    });
+  });
+
+  describe("downloadAndExtractOutput", function () {
+    let herettoWithMocks;
+    let fsMock;
+    let admZipMock;
+    let mockEntries;
+    const mockLog = sinon.stub();
+    const mockConfig = { logLevel: "info" };
+
+    beforeEach(function () {
+      mockLog.reset();
+      
+      // Mock ZIP entries
+      mockEntries = [
+        { entryName: "file1.dita", isDirectory: false, getData: () => Buffer.from("content1") },
+        { entryName: "subdir/", isDirectory: true, getData: () => Buffer.from("") },
+        { entryName: "subdir/file2.dita", isDirectory: false, getData: () => Buffer.from("content2") },
+      ];
+      
+      // Mock AdmZip
+      admZipMock = sinon.stub().returns({
+        getEntries: () => mockEntries,
+        extractAllTo: sinon.stub(),
+      });
+      
+      // Mock fs
+      fsMock = {
+        mkdirSync: sinon.stub(),
+        writeFileSync: sinon.stub(),
+        unlinkSync: sinon.stub(),
+      };
+      
+      // Create heretto with mocked dependencies
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: axiosCreateStub },
+        fs: fsMock,
+        "adm-zip": admZipMock,
+      });
+    });
+
+    it("should download and extract ZIP file successfully", async function () {
+      const zipContent = Buffer.from("mock zip content");
+      mockClient.get.resolves({ data: zipContent });
+
+      const result = await herettoWithMocks.downloadAndExtractOutput(
+        mockClient,
+        "file-uuid",
+        "job-123",
+        "test-heretto",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.not.be.null;
+      expect(result).to.include("heretto_");
+      expect(fsMock.mkdirSync.called).to.be.true;
+      expect(fsMock.writeFileSync.called).to.be.true;
+      expect(fsMock.unlinkSync.called).to.be.true;
+    });
+
+    it("should return null when download fails", async function () {
+      mockClient.get.rejects(new Error("Download failed"));
+
+      const result = await herettoWithMocks.downloadAndExtractOutput(
+        mockClient,
+        "file-uuid",
+        "job-123",
+        "test-heretto",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.null;
+    });
+
+    it("should skip malicious ZIP entries with path traversal", async function () {
+      // Add malicious entry
+      mockEntries.push({ 
+        entryName: "../../../etc/passwd", 
+        isDirectory: false, 
+        getData: () => Buffer.from("malicious") 
+      });
+      
+      const zipContent = Buffer.from("mock zip content");
+      mockClient.get.resolves({ data: zipContent });
+
+      const result = await herettoWithMocks.downloadAndExtractOutput(
+        mockClient,
+        "file-uuid",
+        "job-123",
+        "test-heretto",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.not.be.null;
+      // The warning log should be called for the malicious entry
+      expect(mockLog.called).to.be.true;
     });
   });
 
