@@ -1,9 +1,5 @@
-const assert = require("assert");
 const sinon = require("sinon");
 const proxyquire = require("proxyquire");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
 
 before(async function () {
   const { expect } = await import("chai");

@@ -8,8 +8,9 @@ const AdmZip = require("adm-zip");
 // Internal constants - not exposed to users
 const POLLING_INTERVAL_MS = 5000;
 const POLLING_TIMEOUT_MS = 300000; // 5 minutes
+const API_REQUEST_TIMEOUT_MS = 30000; // 30 seconds for individual API requests
+const DOWNLOAD_TIMEOUT_MS = 300000; // 5 minutes for downloads
 const DEFAULT_SCENARIO_NAME = "Doc Detective";
-const SCENARIO_DESCRIPTION = "Normalized DITA output for Doc Detective testing";
 
 /**
  * Creates a Base64-encoded Basic Auth header from username and API token.
@@ -43,7 +44,7 @@ function createApiClient(herettoConfig) {
   );
   return axios.create({
     baseURL: getBaseUrl(herettoConfig.organizationId),
-    timeout: 30000, // 30 second timeout for individual requests
+    timeout: API_REQUEST_TIMEOUT_MS,
     headers: {
       Authorization: `Basic ${authHeader}`,
       "Content-Type": "application/json",
@@ -61,6 +62,12 @@ async function getPublishingScenarios(client) {
   return response.data.content || [];
 }
 
+/**
+ * Fetches parameters for a specific publishing scenario.
+ * @param {Object} client - Configured axios instance
+ * @param {string} scenarioId - ID of the publishing scenario
+ * @returns {Promise<Object>} Scenario parameters object
+ */
 async function getPublishingScenarioParameters(client, scenarioId) {
   const response = await client.get(
     `/publishes/scenarios/${scenarioId}/parameters`
@@ -68,9 +75,8 @@ async function getPublishingScenarioParameters(client, scenarioId) {
   return response.data;
 }
 
-// TODO: Remove scenario creation. Users have to create it manually with specific settings.
 /**
- * Finds an existing "Doc Detective" scenario or creates one if missing.
+ * Finds an existing publishing scenario by name and validates its configuration.
  * @param {Object} client - Configured axios instance
  * @param {Function} log - Logging function
  * @param {Object} config - Doc Detective config for logging
@@ -108,7 +114,7 @@ async function findScenario(client, log, config, scenarioName) {
       log(
         config,
         "error",
-        `Existing "${DEFAULT_SCENARIO_NAME}" scenario has incorrect "transtype" parameter settings. Make sure it is set to "dita".`
+        `Existing "${scenarioName}" scenario has incorrect "transtype" parameter settings. Make sure it is set to "dita".`
       );
       return null;
     }
@@ -121,7 +127,7 @@ async function findScenario(client, log, config, scenarioName) {
       log(
         config,
         "error",
-        `Existing "${DEFAULT_SCENARIO_NAME}" scenario has incorrect "tool-kit-name" parameter settings".`
+        `Existing "${scenarioName}" scenario has incorrect "tool-kit-name" parameter settings.`
       );
       return null;
     }
@@ -134,7 +140,7 @@ async function findScenario(client, log, config, scenarioName) {
       log(
         config,
         "error",
-        `Existing "${DEFAULT_SCENARIO_NAME}" scenario has incorrect "file_uuid_picker" parameter settings. Make sure it has a valid value.`
+        `Existing "${scenarioName}" scenario has incorrect "file_uuid_picker" parameter settings. Make sure it has a valid value.`
       );
       return null;
     }
@@ -142,7 +148,7 @@ async function findScenario(client, log, config, scenarioName) {
     log(
       config,
       "debug",
-      `Found existing "${DEFAULT_SCENARIO_NAME}" scenario: ${foundScenario.id}`
+      `Found existing "${scenarioName}" scenario: ${foundScenario.id}`
     );
     return { scenarioId: foundScenario.id, fileId: fileUuidPickerParam.value };
   } catch (error) {
@@ -184,11 +190,6 @@ async function getJobStatus(client, fileId, jobId) {
   return response.data;
 }
 
-async function getPublishingJobHistory(client, fileId) {
-  const response = await client.get(`/files/${fileId}/publishes`);
-  return response.data.content || [];
-}
-
 /**
  * Polls a publishing job until completion or timeout.
  * @param {Object} client - Configured axios instance
@@ -206,7 +207,7 @@ async function pollJobStatus(client, fileId, jobId, log, config) {
       const job = await getJobStatus(client, fileId, jobId);
       log(config, "debug", `Job ${jobId} status: ${job?.status?.status}`);
 
-      if (job?.status?.result === "SUCCESS" ) {
+      if (job?.status?.result === "SUCCESS") {
         return job;
       }
 
@@ -258,9 +259,7 @@ async function downloadAndExtractOutput(
   try {
     // Create temp directory if it doesn't exist
     const tempDir = `${os.tmpdir()}/doc-detective`;
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
+    fs.mkdirSync(tempDir, { recursive: true });
 
     // Create unique output directory based on heretto name and job ID
     const hash = crypto
@@ -279,7 +278,7 @@ async function downloadAndExtractOutput(
       `/files/${fileId}/publishes/${jobId}/assets-all`,
       {
         responseType: "arraybuffer",
-        timeout: 300000, // 5 minutes for downloads
+        timeout: DOWNLOAD_TIMEOUT_MS,
         headers: {
           Accept: "application/octet-stream",
         },
@@ -332,8 +331,9 @@ async function loadHerettoContent(herettoConfig, log, config) {
   try {
     const client = createApiClient(herettoConfig);
 
-    // Find or create the Doc Detective publishing scenario
-    const scenario = await findScenario(client, log, config, herettoConfig.scenarioName);
+    // Find the Doc Detective publishing scenario
+    const scenarioName = herettoConfig.scenarioName || DEFAULT_SCENARIO_NAME;
+    const scenario = await findScenario(client, log, config, scenarioName);
     if (!scenario) {
       log(
         config,
@@ -342,13 +342,6 @@ async function loadHerettoContent(herettoConfig, log, config) {
       );
       return null;
     }
-
-    // const history = await getPublishingJobHistory(client, scenario.fileId);
-    // log(
-    //   config,
-    //   "debug",
-    //   `Found ${history.length} previous publishing jobs for file ${scenario.fileId}`
-    // );
 
     // Trigger publishing job
     log(
