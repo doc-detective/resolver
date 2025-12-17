@@ -135,7 +135,7 @@ describe("Heretto Integration", function () {
 
       const scenarioParameters = {
         content: [
-          { name: "transtype", options: [{ value: "html5" }] },
+          { name: "transtype", value: "html5" },
           { name: "tool-kit-name", value: "default/dita-ot-3.6.1" },
           { type: "file_uuid_picker", value: "file-uuid-456" },
         ],
@@ -152,7 +152,7 @@ describe("Heretto Integration", function () {
       expect(result).to.be.null;
     });
 
-    it("should return null if tool-kit-name parameter is incorrect", async function () {
+    it("should return null if tool-kit-name parameter is missing", async function () {
       const existingScenario = {
         id: "scenario-123",
         name: "Doc Detective",
@@ -160,8 +160,7 @@ describe("Heretto Integration", function () {
 
       const scenarioParameters = {
         content: [
-          { name: "transtype", options: [{ value: "dita" }] },
-          { name: "tool-kit-name", value: "default/dita-ot-4.0.0" },
+          { name: "transtype", value: "dita" },
           { type: "file_uuid_picker", value: "file-uuid-456" },
         ],
       };
@@ -185,7 +184,7 @@ describe("Heretto Integration", function () {
 
       const scenarioParameters = {
         content: [
-          { name: "transtype", options: [{ value: "dita" }] },
+          { name: "transtype", value: "dita" },
           { name: "tool-kit-name", value: "default/dita-ot-3.6.1" },
         ],
       };
@@ -293,6 +292,7 @@ describe("Heretto Integration", function () {
         organizationId: "test-org",
         username: "user@example.com",
         apiToken: "token123",
+        scenarioName: "Doc Detective",
       };
 
       // Scenario fetch fails
@@ -309,11 +309,12 @@ describe("Heretto Integration", function () {
         organizationId: "test-org",
         username: "user@example.com",
         apiToken: "token123",
+        scenarioName: "Doc Detective",
       };
 
       const scenarioParameters = {
         content: [
-          { name: "transtype", options: [{ value: "dita" }] },
+          { name: "transtype", value: "dita" },
           { name: "tool-kit-name", value: "default/dita-ot-3.6.1" },
           { type: "file_uuid_picker", value: "file-uuid-456" },
         ],
