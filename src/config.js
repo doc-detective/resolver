@@ -244,10 +244,11 @@ let defaultFileTypes = {
       {
         name: "screenshotImage",
         regex: [
-          '<image\\s+[^>]*outputclass="[^"]*screenshot[^"]*href="([^"]+)"[^>]*"[^>]*\\/>',
+          '<image\\s+[^>]*outputclass="[^"]*screenshot[^"]*"[^>]*href="([^"]+)"[^>]*\\/>',
           '<image\\s+[^>]*href="([^"]+)"[^>]*outputclass="[^"]*screenshot[^"]*"[^>]*\\/>',
           '<image\\s+[^>]*outputclass="[^"]*screenshot[^"]*"[^>]*href="([^"]+)"[\\s\\S]*?<\\/image>',
-          '<image\\s+[^>]*href="([^"]+)"[^>]*outputclass="[^"]*screenshot[^"]*"[\\s\\S]*?<\\/image>',        ],
+          '<image\\s+[^>]*href="([^"]+)"[^>]*outputclass="[^"]*screenshot[^"]*"[\\s\\S]*?<\\/image>',
+        ],
         actions: ["screenshot"],
       },
       {

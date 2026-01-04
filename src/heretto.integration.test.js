@@ -15,6 +15,9 @@
  */
 
 const heretto = require("./heretto");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 before(async function () {
   const { expect } = await import("chai");
@@ -57,6 +60,7 @@ describeIntegration("Heretto Integration Tests (CI Only)", function () {
 
   let client;
   let herettoConfig;
+  let tempDirectories = []; // Track temp directories for cleanup
   const mockLog = (...args) => {
     if (process.env.DEBUG) {
       console.log(...args);
@@ -74,6 +78,33 @@ describeIntegration("Heretto Integration Tests (CI Only)", function () {
     };
 
     client = heretto.createApiClient(herettoConfig);
+  });
+
+  after(function () {
+    // Clean up any temporary directories created during tests
+    const tempDir = path.join(os.tmpdir(), "doc-detective");
+    if (fs.existsSync(tempDir)) {
+      try {
+        // Find and remove heretto_* directories created during this test run
+        const items = fs.readdirSync(tempDir);
+        for (const item of items) {
+          if (item.startsWith("heretto_")) {
+            const itemPath = path.join(tempDir, item);
+            if (fs.statSync(itemPath).isDirectory()) {
+              fs.rmSync(itemPath, { recursive: true, force: true });
+              if (process.env.DEBUG) {
+                console.log(`Cleaned up temp directory: ${itemPath}`);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Ignore cleanup errors - these are best-effort
+        if (process.env.DEBUG) {
+          console.log(`Cleanup warning: ${error.message}`);
+        }
+      }
+    }
   });
 
   describe("API Client Creation", function () {

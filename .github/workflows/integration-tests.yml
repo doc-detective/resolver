@@ -47,7 +47,8 @@ jobs:
           HERETTO_ORGANIZATION_ID: ${{ secrets.HERETTO_ORGANIZATION_ID }}
           HERETTO_USERNAME: ${{ secrets.HERETTO_USERNAME }}
           HERETTO_API_TOKEN: ${{ secrets.HERETTO_API_TOKEN }}
-          HERETTO_SCENARIO_NAME: ${{ secrets.HERETTO_SCENARIO_NAME || 'Doc Detective' }}
+          # HERETTO_SCENARIO_NAME is optional - defaults to 'Doc Detective' in the application
+          HERETTO_SCENARIO_NAME: ${{ secrets.HERETTO_SCENARIO_NAME }}
         run: npm run test:integration
 
       - name: Upload test results

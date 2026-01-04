@@ -570,7 +570,6 @@ async function getResourceDependencies(restClient, ditamapId, log, config) {
   } catch (error) {
     // Log more details about the error for debugging
     const statusCode = error.response?.status;
-    const responseData = error.response?.data;
     log(config, "debug", `Dependencies endpoint not available (${statusCode}), will use ditamap info as fallback`);
     // Continue with ditamap info only - the fallback will create files in the ditamap's parent folder
   }
@@ -908,6 +907,19 @@ async function uploadFile(herettoConfig, fileId, localFilePath, log, config) {
   const client = createRestApiClient(herettoConfig);
 
   try {
+    // Ensure the local file exists before attempting to read it
+    if (!fs.existsSync(localFilePath)) {
+      log(
+        config,
+        "warning",
+        `Local file does not exist, cannot upload to Heretto: ${localFilePath}`
+      );
+      return {
+        status: "FAIL",
+        description: `Local file not found: ${localFilePath}`,
+      };
+    }
+
     // Read file as binary
     const fileBuffer = fs.readFileSync(localFilePath);
 
