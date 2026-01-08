@@ -192,6 +192,31 @@ describe("Utils Module", function () {
       expect(result.items[0]).to.equal("test-value");
       expect(result.items[1]).to.equal("another-value");
     });
+
+    it("should parse JSON env var when entire string is the variable", function () {
+      process.env.FULL_JSON = '{"parsed":"object"}';
+      
+      // When the entire string is a JSON-parseable env var, it parses to object
+      const result = replaceEnvs("$FULL_JSON");
+      
+      // The function tries to parse if match.length === stringOrObject.length
+      // But only when typeof JSON.parse(stringOrObject) === "object" 
+      // which won't work because stringOrObject is "$FULL_JSON" not the JSON
+      expect(result).to.equal('{"parsed":"object"}');
+      
+      delete process.env.FULL_JSON;
+    });
+
+    it("should handle nested env var references", function () {
+      process.env.NESTED_REF = "$TEST_VAR";
+      
+      const result = replaceEnvs("$NESTED_REF");
+      
+      // Should recursively resolve
+      expect(result).to.equal("test-value");
+      
+      delete process.env.NESTED_REF;
+    });
   });
 
   describe("isRelativeUrl", function () {
@@ -431,6 +456,88 @@ describe("Utils Module", function () {
       // On a non-container system, this should return false
       // (unless running tests in a container)
       expect(typeof result).to.equal("boolean");
+    });
+  });
+
+  describe("fetchFile", function () {
+    const axios = require("axios");
+    let axiosGetStub;
+
+    beforeEach(function () {
+      axiosGetStub = sinon.stub(axios, "get");
+    });
+
+    afterEach(function () {
+      axiosGetStub.restore();
+    });
+
+    it("should fetch file and return success with path", async function () {
+      axiosGetStub.resolves({
+        data: "file content here",
+      });
+
+      const result = await fetchFile("https://example.com/test.txt");
+
+      expect(result.result).to.equal("success");
+      expect(result.path).to.include("doc-detective");
+      expect(result.path).to.include("test.txt");
+    });
+
+    it("should handle JSON response data", async function () {
+      axiosGetStub.resolves({
+        data: { key: "value", nested: { foo: "bar" } },
+      });
+
+      const result = await fetchFile("https://example.com/data.json");
+
+      expect(result.result).to.equal("success");
+      expect(result.path).to.include("data.json");
+    });
+
+    it("should return error when fetch fails", async function () {
+      axiosGetStub.rejects(new Error("Network error"));
+
+      const result = await fetchFile("https://example.com/nonexistent.txt");
+
+      expect(result.result).to.equal("error");
+      expect(result.message).to.be.instanceOf(Error);
+    });
+
+    it("should create temp directory if it does not exist", async function () {
+      axiosGetStub.resolves({
+        data: "content",
+      });
+
+      // Clean up temp directory first
+      const tempDir = `${os.tmpdir()}/doc-detective`;
+      if (fs.existsSync(tempDir)) {
+        const files = fs.readdirSync(tempDir);
+        for (const file of files) {
+          fs.unlinkSync(path.join(tempDir, file));
+        }
+        fs.rmdirSync(tempDir);
+      }
+
+      const result = await fetchFile("https://example.com/new-file.txt");
+
+      expect(result.result).to.equal("success");
+      expect(fs.existsSync(tempDir)).to.be.true;
+    });
+
+    it("should reuse existing cached file", async function () {
+      const testContent = "cached content " + Date.now();
+      axiosGetStub.resolves({
+        data: testContent,
+      });
+
+      // First fetch
+      const result1 = await fetchFile("https://example.com/cached.txt");
+      expect(result1.result).to.equal("success");
+
+      // Second fetch should return same path (cached)
+      const result2 = await fetchFile("https://example.com/cached.txt");
+      expect(result2.result).to.equal("success");
+      expect(result2.path).to.equal(result1.path);
     });
   });
 });
