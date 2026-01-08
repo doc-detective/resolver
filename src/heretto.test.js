@@ -1586,5 +1586,34 @@ describe("Heretto Integration", function () {
       expect(result["content/topic1.dita"]).to.exist;
       expect(result["images/img.png"]).to.exist;
     });
+
+    it("should handle dependencies response with root-level attributes", async function () {
+      const ditamapInfo = `<?xml version="1.0"?>
+        <resource>
+          <xmldb-uri>/db/organizations/test-org/content/guide.ditamap</xmldb-uri>
+          <name>guide.ditamap</name>
+          <folder-uuid>folder-123</folder-uuid>
+        </resource>`;
+
+      // Response format where dependency info is at root level with @_id and @_uri
+      const dependenciesResponse = `<?xml version="1.0"?>
+        <dependency id="single-dep" uri="/db/organizations/test-org/content/single.dita" name="single.dita"/>`;
+
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().resolves({ data: ditamapInfo });
+      restClient.get.onSecondCall().resolves({ data: dependenciesResponse });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+      // Should extract the single dependency
+      expect(result["content/single.dita"]).to.exist;
+      expect(result["content/single.dita"].uuid).to.equal("single-dep");
+    });
   });
 });

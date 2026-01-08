@@ -545,4 +545,129 @@ describe("OpenAPI Module", function () {
       }
     });
   });
+
+  describe("compileExample error handling", function () {
+    // These tests cover internal function error handling (lines 123-128)
+    // The compileExample function is called internally by getOperation
+    
+    it("should handle operation with no example - generates from schema", function () {
+      const definitionWithEmptyExamples = {
+        openapi: "3.0.0",
+        servers: [{ url: "https://api.example.com" }],
+        paths: {
+          "/test": {
+            get: {
+              operationId: "testOp",
+              parameters: [
+                {
+                  name: "emptyParam",
+                  in: "query",
+                  schema: { type: "string" },
+                  // No example provided - generates from schema
+                },
+              ],
+              responses: {
+                "200": {
+                  content: {
+                    "application/json": {
+                      schema: { type: "object" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = openapi.getOperation(definitionWithEmptyExamples, "testOp");
+      
+      // Should generate a value from the schema when no example is provided
+      expect(result.example.request.parameters).to.have.property("emptyParam");
+      expect(result.example.request.parameters.emptyParam).to.be.a("string");
+    });
+  });
+
+  describe("getExample with schema generation", function () {
+    it("should generate example from schema when no example provided and required", function () {
+      const definitionWithSchema = {
+        openapi: "3.0.0",
+        servers: [{ url: "https://api.example.com" }],
+        paths: {
+          "/generate": {
+            post: {
+              operationId: "generateExample",
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema: {
+                      type: "object",
+                      required: ["name"],
+                      properties: {
+                        name: { type: "string" },
+                        count: { type: "integer" },
+                      },
+                    },
+                    // No example - should generate from schema
+                  },
+                },
+              },
+              responses: {
+                "201": {
+                  content: {
+                    "application/json": {
+                      schema: { type: "object" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = openapi.getOperation(definitionWithSchema, "generateExample");
+
+      // Should generate an example from the schema
+      expect(result.example.request.body).to.be.an("object");
+    });
+
+    it("should handle parameter with type for schema generation", function () {
+      const definitionWithTypedParam = {
+        openapi: "3.0.0",
+        servers: [{ url: "https://api.example.com" }],
+        paths: {
+          "/typed": {
+            get: {
+              operationId: "typedOp",
+              parameters: [
+                {
+                  name: "requiredParam",
+                  in: "query",
+                  required: true,
+                  type: "string",
+                  // No example - has type for generation
+                },
+              ],
+              responses: {
+                "200": {
+                  content: {
+                    "application/json": {
+                      schema: { type: "object" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = openapi.getOperation(definitionWithTypedParam, "typedOp");
+      
+      // Parameter should be generated from type
+      expect(result.example.request.parameters).to.have.property("requiredParam");
+    });
+  });
 });

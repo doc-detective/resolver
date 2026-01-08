@@ -1,4 +1,5 @@
 const sinon = require("sinon");
+const proxyquire = require("proxyquire");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -17,6 +18,8 @@ const {
   calculatePercentageDifference,
   inContainer,
   spawnCommand,
+  qualifyFiles,
+  parseTests,
 } = require("./utils");
 
 before(async function () {
@@ -216,6 +219,18 @@ describe("Utils Module", function () {
       expect(result).to.equal("test-value");
       
       delete process.env.NESTED_REF;
+    });
+
+    it("should return JSON string when env var contains JSON (JSON parse branch unreachable)", function () {
+      // Note: Lines 1177-1182 check JSON.parse(stringOrObject) where stringOrObject is "$VAR"
+      // Since "$VAR" is never valid JSON, this branch is effectively unreachable
+      // The JSON object is returned as a string
+      process.env.OBJECT_VAR = '{"key":"value"}';
+      
+      const result = replaceEnvs("$OBJECT_VAR");
+      expect(result).to.equal('{"key":"value"}');
+      
+      delete process.env.OBJECT_VAR;
     });
   });
 
@@ -538,6 +553,81 @@ describe("Utils Module", function () {
       const result2 = await fetchFile("https://example.com/cached.txt");
       expect(result2.result).to.equal("success");
       expect(result2.path).to.equal(result1.path);
+    });
+  });
+
+  describe("qualifyFiles", function () {
+    it("should return empty array when no input sources specified", async function () {
+      const config = {
+        logLevel: "error",
+        input: [],
+        fileTypes: [],
+      };
+
+      const result = await qualifyFiles({ config });
+
+      expect(result).to.be.an("array").that.is.empty;
+    });
+
+    it("should qualify a valid JSON spec file", async function () {
+      const testFilePath = path.resolve("./test/artifacts/test.spec.json");
+      
+      const config = {
+        logLevel: "error",
+        input: [testFilePath],
+        fileTypes: [],
+        recursive: false,
+      };
+
+      const result = await qualifyFiles({ config });
+
+      expect(result).to.be.an("array");
+      expect(result).to.include(testFilePath);
+    });
+
+    it("should handle URL sources gracefully", async function () {
+      // This test verifies URL handling - the fetch will fail but shouldn't crash
+      const config = {
+        logLevel: "error",
+        input: ["https://nonexistent.example.com/file.md"],
+        fileTypes: [
+          {
+            extensions: [".md"],
+            testStartStatementOpen: "<!--",
+            testStartStatementClose: "-->",
+          },
+        ],
+        recursive: false,
+      };
+
+      // Should handle gracefully (fetch will fail but won't crash)
+      const result = await qualifyFiles({ config });
+      expect(result).to.be.an("array");
+    });
+
+    it("should handle heretto source that is not configured", async function () {
+      const config = {
+        logLevel: "error",
+        input: ["heretto:nonexistent"],
+        fileTypes: [],
+        recursive: false,
+      };
+
+      const result = await qualifyFiles({ config });
+      expect(result).to.be.an("array").that.is.empty;
+    });
+  });
+
+  describe("parseTests", function () {
+    it("should return empty array for empty files list", async function () {
+      const config = {
+        logLevel: "error",
+        fileTypes: [],
+      };
+
+      const result = await parseTests({ config, files: [] });
+
+      expect(result).to.be.an("array").that.is.empty;
     });
   });
 });

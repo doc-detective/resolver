@@ -633,5 +633,77 @@ describe("Resolve Module", function () {
       // Test should have openApi from config
       expect(result.specs[0].tests[0].openApi).to.be.an("array");
     });
+
+    it("should successfully load OpenAPI definition and replace existing one with same name", async function () {
+      const path = require("path");
+      const openApiPath = path.join(__dirname, "..", "dev", "reqres.openapi.json");
+      
+      const config = {
+        logLevel: "error",
+        integrations: {
+          openApi: [
+            {
+              name: "reqres-api",
+              definition: { openapi: "3.0.0", info: { title: "Old API" } },
+            },
+          ],
+        },
+      };
+      const detectedTests = [
+        {
+          openApi: [
+            {
+              name: "reqres-api",
+              descriptionPath: openApiPath,
+            },
+          ],
+          tests: [
+            {
+              steps: [{ checkLink: "https://example.com" }],
+            },
+          ],
+        },
+      ];
+
+      const result = await resolveDetectedTests({ config, detectedTests });
+
+      // The new definition should replace the old one
+      expect(result.specs[0].openApi).to.have.length(1);
+      expect(result.specs[0].openApi[0].name).to.equal("reqres-api");
+      // Should have the loaded definition, not the old one
+      expect(result.specs[0].openApi[0].definition.info.title).to.equal("Reqres API");
+    });
+
+    it("should successfully load OpenAPI definition and add it when no existing definition", async function () {
+      const path = require("path");
+      const openApiPath = path.join(__dirname, "..", "dev", "reqres.openapi.json");
+      
+      const config = {
+        logLevel: "error",
+      };
+      const detectedTests = [
+        {
+          openApi: [
+            {
+              name: "reqres-api",
+              descriptionPath: openApiPath,
+            },
+          ],
+          tests: [
+            {
+              steps: [{ checkLink: "https://example.com" }],
+            },
+          ],
+        },
+      ];
+
+      const result = await resolveDetectedTests({ config, detectedTests });
+
+      // The definition should be loaded
+      expect(result.specs[0].openApi).to.have.length(1);
+      expect(result.specs[0].openApi[0].name).to.equal("reqres-api");
+      expect(result.specs[0].openApi[0].definition).to.have.property("openapi");
+      expect(result.specs[0].openApi[0].definition.info.title).to.equal("Reqres API");
+    });
   });
 });
