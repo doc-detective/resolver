@@ -41,7 +41,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run integration tests
+      - name: Run integration tests with coverage
         env:
           CI: 'true'
           HERETTO_ORGANIZATION_ID: ${{ secrets.HERETTO_ORGANIZATION_ID }}
@@ -49,7 +49,15 @@ jobs:
           HERETTO_API_TOKEN: ${{ secrets.HERETTO_API_TOKEN }}
           # HERETTO_SCENARIO_NAME is optional - defaults to 'Doc Detective' in the application
           HERETTO_SCENARIO_NAME: ${{ secrets.HERETTO_SCENARIO_NAME }}
-        run: npm run test:integration
+        run: npm run test:integration:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
 
       - name: Upload test results
         if: always()

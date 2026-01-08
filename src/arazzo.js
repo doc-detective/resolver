@@ -103,3 +103,6 @@ function workflowToTest(arazzoDescription, workflowId, inputs) {
 
   return test;
 }
+
+module.exports = { workflowToTest };
+
