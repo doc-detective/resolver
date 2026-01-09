@@ -427,10 +427,19 @@ describe("Utils Module", function () {
     });
 
     it("should capture stderr", async function () {
-      // Use process.stderr.write to avoid platform-specific formatting from console.error
-      const result = await spawnCommand("node", ["-e", "process.stderr.write('error message')"]);
+      // Create a temporary script file to avoid shell quoting issues across platforms
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "stderr-test-"));
+      const scriptPath = path.join(tempDir, "stderr-script.js");
+      fs.writeFileSync(scriptPath, "process.stderr.write('error message');");
       
-      expect(result.stderr).to.include("error message");
+      try {
+        const result = await spawnCommand("node", [scriptPath]);
+        expect(result.stderr).to.include("error message");
+      } finally {
+        // Cleanup
+        fs.unlinkSync(scriptPath);
+        fs.rmdirSync(tempDir);
+      }
     });
 
     it("should respect cwd option", async function () {
