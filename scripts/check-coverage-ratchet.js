@@ -40,6 +40,38 @@ function main() {
   const current = coverage.total;
   const metrics = ['lines', 'branches', 'functions', 'statements'];
   
+  // Validate thresholds structure
+  if (typeof thresholds !== 'object' || thresholds === null) {
+    console.error(`Error: ${THRESHOLDS_FILE} must contain a JSON object`);
+    process.exit(1);
+  }
+  
+  // Validate coverage.total structure
+  if (typeof current !== 'object' || current === null) {
+    console.error(`Error: ${COVERAGE_FILE} must contain a "total" object`);
+    process.exit(1);
+  }
+  
+  // Validate each metric exists and has numeric values
+  for (const metric of metrics) {
+    // Check threshold value
+    if (typeof thresholds[metric] !== 'number') {
+      console.error(`Error: ${THRESHOLDS_FILE} missing numeric value for "${metric}" (found: ${typeof thresholds[metric]})`);
+      process.exit(1);
+    }
+    
+    // Check coverage value
+    if (typeof current[metric] !== 'object' || current[metric] === null) {
+      console.error(`Error: ${COVERAGE_FILE} missing "${metric}" in total (found: ${typeof current[metric]})`);
+      process.exit(1);
+    }
+    
+    if (typeof current[metric].pct !== 'number') {
+      console.error(`Error: ${COVERAGE_FILE} missing numeric "pct" for "${metric}" in total (found: ${typeof current[metric].pct})`);
+      process.exit(1);
+    }
+  }
+  
   let failed = false;
   const results = [];
   

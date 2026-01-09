@@ -150,6 +150,7 @@ describe("detectAndResolveTests - edge cases", function () {
 
     expect(result).to.be.null;
     expect(logStub.calledWith(configResolved, "warning", "No tests detected.")).to.be.true;
+    expect(resolveDetectedTestsStub.notCalled).to.be.true;
   });
 
   it("should return null when detected tests is null", async function () {
@@ -162,6 +163,8 @@ describe("detectAndResolveTests - edge cases", function () {
     const result = await detectAndResolveTests({ config: {} });
 
     expect(result).to.be.null;
+    expect(logStub.calledWith(configResolved, "warning", "No tests detected.")).to.be.true;
+    expect(resolveDetectedTestsStub.notCalled).to.be.true;
   });
 });
 
@@ -196,8 +199,9 @@ describe("resolveTests - edge cases", function () {
 
     const result = await resolveTests({ config: configInput, detectedTests });
 
-    expect(setConfigStub.calledOnce).to.be.true;
+    expect(setConfigStub.calledOnceWithExactly({ config: configInput })).to.be.true;
     expect(logStub.calledWith(configResolved, "debug", "CONFIG:")).to.be.true;
+    expect(resolveDetectedTestsStub.calledOnceWithExactly({ config: configResolved, detectedTests })).to.be.true;
     expect(result).to.deep.equal(resolvedTests);
   });
 });

@@ -44,10 +44,10 @@ Current thresholds are in `coverage-thresholds.json`. These values must only inc
 
 | Metric | Current Threshold |
 |--------|-------------------|
-| Lines | 75% |
-| Statements | 75% |
-| Functions | 86% |
-| Branches | 82% |
+| Lines | 87% |
+| Statements | 87% |
+| Functions | 97% |
+| Branches | 84% |
 
 ### 4. Test Location
 

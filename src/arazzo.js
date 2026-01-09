@@ -1,11 +1,15 @@
 const crypto = require("crypto");
+const { log } = require("./utils");
 
 /**
  * Translates an Arazzo description into a Doc Detective test specification
  * @param {Object} arazzoDescription - The Arazzo description object
+ * @param {string} workflowId - The ID of the workflow to translate
+ * @param {Object} inputs - Input parameters for the workflow
+ * @param {Object} [config] - Optional config object for logging
  * @returns {Object} - The Doc Detective test specification object
  */
-function workflowToTest(arazzoDescription, workflowId, inputs) {
+function workflowToTest(arazzoDescription, workflowId, inputs, config) {
   // Initialize the Doc Detective test specification
   const test = {
     id: arazzoDescription.info.title || `${crypto.randomUUID()}`,
@@ -32,7 +36,11 @@ function workflowToTest(arazzoDescription, workflowId, inputs) {
   );
 
   if (!workflow) {
-    console.warn(`Workflow with ID ${workflowId} not found.`);
+    if (config) {
+      log(config, "warning", `Workflow with ID ${workflowId} not found.`);
+    } else {
+      console.warn(`Workflow with ID ${workflowId} not found.`);
+    }
     return;
   }
 
@@ -47,19 +55,30 @@ function workflowToTest(arazzoDescription, workflowId, inputs) {
       docDetectiveStep.openApi = { operationId: workflowStep.operationId };
     } else if (workflowStep.operationPath) {
       // Handle operation path references (not yet supported in Doc Detective)
-      console.warn(
-        `Operation path references arne't yet supported in Doc Detective: ${workflowStep.operationPath}`
-      );
+      const message = `Operation path references aren't yet supported in Doc Detective: ${workflowStep.operationPath}`;
+      if (config) {
+        log(config, "warning", message);
+      } else {
+        console.warn(message);
+      }
       return;
     } else if (workflowStep.workflowId) {
       // Handle workflow references (not yet supported in Doc Detective)
-      console.warn(
-        `Workflow references arne't yet supported in Doc Detective: ${workflowStep.workflowId}`
-      );
+      const message = `Workflow references aren't yet supported in Doc Detective: ${workflowStep.workflowId}`;
+      if (config) {
+        log(config, "warning", message);
+      } else {
+        console.warn(message);
+      }
       return;
     } else {
       // Handle unsupported step types
-      console.warn(`Unsupported step type: ${JSON.stringify(workflowStep)}`);
+      const message = `Unsupported step type: ${JSON.stringify(workflowStep)}`;
+      if (config) {
+        log(config, "warning", message);
+      } else {
+        console.warn(message);
+      }
       return;
     }
 
