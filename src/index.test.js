@@ -113,6 +113,99 @@ describe("detectTests", function () {
   });
 });
 
+describe("detectAndResolveTests - edge cases", function () {
+  let detectAndResolveTests;
+  let setConfigStub, qualifyFilesStub, parseTestsStub, logStub, resolveDetectedTestsStub;
+
+  beforeEach(function () {
+    setConfigStub = sinon.stub();
+    qualifyFilesStub = sinon.stub();
+    parseTestsStub = sinon.stub();
+    logStub = sinon.stub();
+    resolveDetectedTestsStub = sinon.stub();
+
+    detectAndResolveTests = proxyquire("./index", {
+      "./config": { setConfig: setConfigStub },
+      "./utils": {
+        qualifyFiles: qualifyFilesStub,
+        parseTests: parseTestsStub,
+        log: logStub,
+      },
+      "./resolve": { resolveDetectedTests: resolveDetectedTestsStub },
+    }).detectAndResolveTests;
+  });
+
+  afterEach(function () {
+    sinon.restore();
+  });
+
+  it("should return null when no tests are detected (empty array)", async function () {
+    const configResolved = { environment: "test", logLevel: "error" };
+    
+    setConfigStub.resolves(configResolved);
+    qualifyFilesStub.resolves([]);
+    parseTestsStub.resolves([]);
+
+    const result = await detectAndResolveTests({ config: {} });
+
+    expect(result).to.be.null;
+    expect(logStub.calledWith(configResolved, "warning", "No tests detected.")).to.be.true;
+    expect(resolveDetectedTestsStub.notCalled).to.be.true;
+  });
+
+  it("should return null when detected tests is null", async function () {
+    const configResolved = { environment: "test", logLevel: "error" };
+    
+    setConfigStub.resolves(configResolved);
+    qualifyFilesStub.resolves([]);
+    parseTestsStub.resolves(null);
+
+    const result = await detectAndResolveTests({ config: {} });
+
+    expect(result).to.be.null;
+    expect(logStub.calledWith(configResolved, "warning", "No tests detected.")).to.be.true;
+    expect(resolveDetectedTestsStub.notCalled).to.be.true;
+  });
+});
+
+describe("resolveTests - edge cases", function () {
+  let resolveTests;
+  let setConfigStub, logStub, resolveDetectedTestsStub;
+
+  beforeEach(function () {
+    setConfigStub = sinon.stub();
+    logStub = sinon.stub();
+    resolveDetectedTestsStub = sinon.stub();
+
+    resolveTests = proxyquire("./index", {
+      "./config": { setConfig: setConfigStub },
+      "./utils": { log: logStub },
+      "./resolve": { resolveDetectedTests: resolveDetectedTestsStub },
+    }).resolveTests;
+  });
+
+  afterEach(function () {
+    sinon.restore();
+  });
+
+  it("should resolve config when environment is not set", async function () {
+    const configInput = { foo: "bar" };
+    const configResolved = { ...configInput, environment: "test" };
+    const detectedTests = [{ name: "test1" }];
+    const resolvedTests = [{ name: "resolved1" }];
+    
+    setConfigStub.resolves(configResolved);
+    resolveDetectedTestsStub.resolves(resolvedTests);
+
+    const result = await resolveTests({ config: configInput, detectedTests });
+
+    expect(setConfigStub.calledOnceWithExactly({ config: configInput })).to.be.true;
+    expect(logStub.calledWith(configResolved, "debug", "CONFIG:")).to.be.true;
+    expect(resolveDetectedTestsStub.calledOnceWithExactly({ config: configResolved, detectedTests })).to.be.true;
+    expect(result).to.deep.equal(resolvedTests);
+  });
+});
+
 // Input/output comparisons.
 const yamlInput = `
 tests:

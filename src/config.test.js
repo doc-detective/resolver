@@ -403,6 +403,210 @@ function deepObjectExpect(actual, expected) {
   });
 }
 
+describe("fileTypes normalization", function () {
+  // Note: fileTypes must be an array per schema validation, but internal 
+  // normalization code handles string conversion for individual properties
+
+  it("should convert string inlineStatements.testStart to array", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        fileTypes: [
+          {
+            name: "custom",
+            extensions: ["txt"],
+            inlineStatements: {
+              testStart: "<!-- test -->",
+              step: "<!-- step -->"
+            }
+          }
+        ]
+      } 
+    });
+    
+    const customFileType = config.fileTypes.find(ft => ft.name === "custom");
+    expect(customFileType.inlineStatements.testStart).to.be.an("array");
+    expect(customFileType.inlineStatements.testStart).to.include("<!-- test -->");
+    expect(customFileType.inlineStatements.step).to.be.an("array");
+    expect(customFileType.inlineStatements.step).to.include("<!-- step -->");
+  });
+
+  it("should convert string inlineStatements.testEnd to array", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        fileTypes: [
+          {
+            name: "custom",
+            extensions: ["txt"],
+            inlineStatements: {
+              testEnd: "<!-- /test -->"
+            }
+          }
+        ]
+      } 
+    });
+    
+    const customFileType = config.fileTypes.find(ft => ft.name === "custom");
+    expect(customFileType.inlineStatements.testEnd).to.be.an("array");
+    expect(customFileType.inlineStatements.testEnd).to.include("<!-- /test -->");
+  });
+
+  it("should convert string inlineStatements.ignoreStart to array", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        fileTypes: [
+          {
+            name: "custom",
+            extensions: ["txt"],
+            inlineStatements: {
+              ignoreStart: "<!-- ignore -->"
+            }
+          }
+        ]
+      } 
+    });
+    
+    const customFileType = config.fileTypes.find(ft => ft.name === "custom");
+    expect(customFileType.inlineStatements.ignoreStart).to.be.an("array");
+    expect(customFileType.inlineStatements.ignoreStart).to.include("<!-- ignore -->");
+  });
+
+  it("should convert string inlineStatements.ignoreEnd to array", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        fileTypes: [
+          {
+            name: "custom",
+            extensions: ["txt"],
+            inlineStatements: {
+              ignoreEnd: "<!-- /ignore -->"
+            }
+          }
+        ]
+      } 
+    });
+    
+    const customFileType = config.fileTypes.find(ft => ft.name === "custom");
+    expect(customFileType.inlineStatements.ignoreEnd).to.be.an("array");
+    expect(customFileType.inlineStatements.ignoreEnd).to.include("<!-- /ignore -->");
+  });
+
+  it("should throw error when fileType.extends references unknown fileType", async function () {
+    // Note: The actual error comes from schema validation which happens before 
+    // the extends check. The extends logic error only fires if validation passes first.
+    // We need a fileType that passes validation but has an invalid extends reference.
+    try {
+      await setConfig({ 
+        config: { 
+          input: ["test.md"],
+          fileTypes: [
+            {
+              name: "custom",
+              extensions: ["txt"],
+              extends: "nonexistent_filetype"
+            }
+          ]
+        } 
+      });
+      expect.fail("Should have thrown an error");
+    } catch (error) {
+      expect(error.message).to.include("fileType.extends references unknown fileType definition");
+      expect(error.message).to.include("nonexistent_filetype");
+    }
+  });
+
+  it("should handle fileType that extends but has no name (uses extended name)", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        fileTypes: [
+          {
+            extends: "markdown",
+            extensions: ["custom"]
+          }
+        ]
+      } 
+    });
+    
+    const fileType = config.fileTypes.find(ft => ft.extensions.includes("custom"));
+    expect(fileType.name).to.equal("markdown");
+  });
+
+  it("should convert string markup.regex to array", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        fileTypes: [
+          {
+            name: "custom",
+            extensions: ["txt"],
+            markup: [
+              {
+                name: "testMarkup",
+                regex: "test pattern",
+                actions: []
+              }
+            ]
+          }
+        ]
+      } 
+    });
+    
+    const customFileType = config.fileTypes.find(ft => ft.name === "custom");
+    expect(customFileType.markup[0].regex).to.be.an("array");
+    expect(customFileType.markup[0].regex).to.include("test pattern");
+  });
+});
+
+describe("loadDescriptions", function () {
+  it("should handle OpenAPI description load failure and remove failed config", async function () {
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        integrations: {
+          openApi: [
+            {
+              name: "failing-api",
+              descriptionPath: "/nonexistent/path/to/openapi.yaml"
+            }
+          ]
+        }
+      } 
+    });
+    
+    // The failed OpenAPI config should be removed
+    expect(config.integrations.openApi).to.be.an("array");
+    expect(config.integrations.openApi.length).to.equal(0);
+  });
+
+  it("should successfully load valid OpenAPI description", async function () {
+    const path = require("path");
+    const openApiPath = path.join(__dirname, "..", "dev", "reqres.openapi.json");
+    
+    const config = await setConfig({ 
+      config: { 
+        input: ["test.md"],
+        integrations: {
+          openApi: [
+            {
+              name: "reqres-api",
+              descriptionPath: openApiPath
+            }
+          ]
+        }
+      } 
+    });
+    
+    expect(config.integrations.openApi).to.be.an("array");
+    expect(config.integrations.openApi.length).to.equal(1);
+    expect(config.integrations.openApi[0].definition).to.have.property("openapi");
+    expect(config.integrations.openApi[0].definition.info.title).to.equal("Reqres API");
+  });
+});
+
 describe("resolveConcurrentRunners", function () {
   const { resolveConcurrentRunners } = require("./config");
   const os = require("os");

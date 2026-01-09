@@ -698,4 +698,922 @@ describe("Heretto Integration", function () {
       expect(heretto.DEFAULT_SCENARIO_NAME).to.equal("Doc Detective");
     });
   });
+
+  describe("createRestApiClient", function () {
+    it("should create an axios client with REST API config", function () {
+      const herettoConfig = {
+        organizationId: "thunderbird",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      heretto.createRestApiClient(herettoConfig);
+
+      expect(axiosCreateStub.called).to.be.true;
+      const createConfig = axiosCreateStub.lastCall.args[0];
+      expect(createConfig.baseURL).to.equal("https://thunderbird.heretto.com");
+      expect(createConfig.headers.Authorization).to.include("Basic ");
+      expect(createConfig.headers.Accept).to.equal("application/xml, text/xml, */*");
+    });
+  });
+
+  describe("getJobStatus", function () {
+    it("should return job status data", async function () {
+      const expectedStatus = {
+        id: "job-123",
+        status: { status: "COMPLETED", result: "SUCCESS" },
+      };
+
+      mockClient.get.resolves({ data: expectedStatus });
+
+      const result = await heretto.getJobStatus(mockClient, "file-uuid", "job-123");
+
+      expect(result).to.deep.equal(expectedStatus);
+      expect(mockClient.get.calledOnce).to.be.true;
+      expect(mockClient.get.firstCall.args[0]).to.equal("/files/file-uuid/publishes/job-123");
+    });
+
+    it("should propagate errors from API", async function () {
+      mockClient.get.rejects(new Error("API error"));
+
+      try {
+        await heretto.getJobStatus(mockClient, "file-uuid", "job-123");
+        expect.fail("Expected error to be thrown");
+      } catch (error) {
+        expect(error.message).to.equal("API error");
+      }
+    });
+  });
+
+  describe("buildFileMapping", function () {
+    let herettoWithMocks;
+    let fsMock;
+    const mockLog = sinon.stub();
+    const mockConfig = { logLevel: "info" };
+
+    beforeEach(function () {
+      mockLog.reset();
+    });
+
+    it("should build file mapping from DITA files with image references", async function () {
+      const ditaContent = `<?xml version="1.0" encoding="UTF-8"?>
+        <topic>
+          <body>
+            <image href="images/screenshot.png"/>
+            <image href="../common/logo.png"/>
+          </body>
+        </topic>`;
+
+      fsMock = {
+        readdirSync: sinon.stub().callsFake((dir) => {
+          if (dir.includes("output")) return ["topic.dita"];
+          return [];
+        }),
+        statSync: sinon.stub().returns({ isDirectory: () => false }),
+        readFileSync: sinon.stub().returns(ditaContent),
+      };
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: axiosCreateStub },
+        fs: fsMock,
+      });
+
+      const result = await herettoWithMocks.buildFileMapping(
+        "/tmp/output",
+        { name: "test-heretto" },
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+    });
+
+    it("should handle empty directory", async function () {
+      fsMock = {
+        readdirSync: sinon.stub().returns([]),
+        statSync: sinon.stub(),
+        readFileSync: sinon.stub(),
+      };
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: axiosCreateStub },
+        fs: fsMock,
+      });
+
+      const result = await herettoWithMocks.buildFileMapping(
+        "/tmp/output",
+        { name: "test-heretto" },
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.deep.equal({});
+    });
+
+    it("should handle parsing errors gracefully", async function () {
+      fsMock = {
+        readdirSync: sinon.stub().returns(["bad.dita"]),
+        statSync: sinon.stub().returns({ isDirectory: () => false }),
+        readFileSync: sinon.stub().throws(new Error("Read error")),
+      };
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: axiosCreateStub },
+        fs: fsMock,
+      });
+
+      const result = await herettoWithMocks.buildFileMapping(
+        "/tmp/output",
+        { name: "test-heretto" },
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.deep.equal({});
+    });
+
+    it("should recursively search subdirectories", async function () {
+      const ditaContent = `<?xml version="1.0" encoding="UTF-8"?>
+        <topic><body><image href="img.png"/></body></topic>`;
+
+      fsMock = {
+        readdirSync: sinon.stub().callsFake((dir) => {
+          if (dir === "/tmp/output") return ["subdir", "topic.dita"];
+          if (dir === "/tmp/output/subdir") return ["nested.dita"];
+          return [];
+        }),
+        statSync: sinon.stub().callsFake((fullPath) => ({
+          isDirectory: () => fullPath.includes("subdir") && !fullPath.includes(".dita"),
+        })),
+        readFileSync: sinon.stub().returns(ditaContent),
+      };
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: axiosCreateStub },
+        fs: fsMock,
+      });
+
+      const result = await herettoWithMocks.buildFileMapping(
+        "/tmp/output",
+        { name: "test-heretto" },
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+    });
+
+    it("should handle file system errors during directory read", async function () {
+      fsMock = {
+        readdirSync: sinon.stub().throws(new Error("Permission denied")),
+        statSync: sinon.stub(),
+        readFileSync: sinon.stub(),
+      };
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: axiosCreateStub },
+        fs: fsMock,
+      });
+
+      const result = await herettoWithMocks.buildFileMapping(
+        "/tmp/output",
+        { name: "test-heretto" },
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.deep.equal({});
+    });
+  });
+
+  describe("searchFileByName", function () {
+    const mockLog = sinon.stub();
+    const mockConfig = { logLevel: "info" };
+
+    beforeEach(function () {
+      mockLog.reset();
+    });
+
+    it("should return file info when exact match is found", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.resolves({
+        data: {
+          hits: [
+            {
+              fileEntity: {
+                ID: "file-123",
+                URI: "/db/organizations/test-org/images/logo.png",
+                name: "logo.png",
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await heretto.searchFileByName(
+        herettoConfig,
+        "logo.png",
+        null,
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.deep.equal({
+        fileId: "file-123",
+        filePath: "/db/organizations/test-org/images/logo.png",
+        name: "logo.png",
+      });
+    });
+
+    it("should return null when no exact match is found", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.resolves({
+        data: {
+          hits: [
+            {
+              fileEntity: {
+                ID: "file-123",
+                URI: "/images/different.png",
+                name: "different.png",
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await heretto.searchFileByName(
+        herettoConfig,
+        "logo.png",
+        null,
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.null;
+    });
+
+    it("should return null when no hits returned", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.resolves({
+        data: { hits: [] },
+      });
+
+      const result = await heretto.searchFileByName(
+        herettoConfig,
+        "logo.png",
+        null,
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.null;
+    });
+
+    it("should return null on API error", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.rejects(new Error("Network error"));
+
+      const result = await heretto.searchFileByName(
+        herettoConfig,
+        "logo.png",
+        null,
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.null;
+    });
+
+    it("should search within specific folder when provided", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.resolves({
+        data: {
+          hits: [
+            {
+              fileEntity: {
+                ID: "file-456",
+                URI: "/specific/folder/image.png",
+                name: "image.png",
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await heretto.searchFileByName(
+        herettoConfig,
+        "image.png",
+        "/specific/folder",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.deep.equal({
+        fileId: "file-456",
+        filePath: "/specific/folder/image.png",
+        name: "image.png",
+      });
+
+      // Verify folder was included in search body
+      const searchBody = mockClient.post.firstCall.args[1];
+      expect(searchBody.foldersToSearch["/specific/folder"]).to.be.true;
+    });
+  });
+
+  describe("uploadFile", function () {
+    let herettoWithMocks;
+    let fsMock;
+    const mockLog = sinon.stub();
+    const mockConfig = { logLevel: "info" };
+
+    beforeEach(function () {
+      mockLog.reset();
+    });
+
+    it("should upload file successfully", async function () {
+      const fileBuffer = Buffer.from("image data");
+      
+      fsMock = {
+        existsSync: sinon.stub().returns(true),
+        readFileSync: sinon.stub().returns(fileBuffer),
+      };
+
+      // Need to track put calls
+      mockClient.put = sinon.stub().resolves({ status: 200 });
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: sinon.stub().returns(mockClient) },
+        fs: fsMock,
+      });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      const result = await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.png",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result.status).to.equal("PASS");
+      expect(result.description).to.include("uploaded successfully");
+    });
+
+    it("should return FAIL when local file does not exist", async function () {
+      fsMock = {
+        existsSync: sinon.stub().returns(false),
+        readFileSync: sinon.stub(),
+      };
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: sinon.stub().returns(mockClient) },
+        fs: fsMock,
+      });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      const result = await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/missing.png",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result.status).to.equal("FAIL");
+      expect(result.description).to.include("Local file not found");
+    });
+
+    it("should return FAIL on API error", async function () {
+      const fileBuffer = Buffer.from("image data");
+      
+      fsMock = {
+        existsSync: sinon.stub().returns(true),
+        readFileSync: sinon.stub().returns(fileBuffer),
+      };
+
+      mockClient.put = sinon.stub().rejects(new Error("Upload failed"));
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: sinon.stub().returns(mockClient) },
+        fs: fsMock,
+      });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      const result = await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.png",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result.status).to.equal("FAIL");
+      expect(result.description).to.include("Failed to upload");
+    });
+
+    it("should detect correct content type for different image formats", async function () {
+      const fileBuffer = Buffer.from("image data");
+      
+      fsMock = {
+        existsSync: sinon.stub().returns(true),
+        readFileSync: sinon.stub().returns(fileBuffer),
+      };
+
+      mockClient.put = sinon.stub().resolves({ status: 200 });
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: sinon.stub().returns(mockClient) },
+        fs: fsMock,
+      });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      // Test PNG
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.png",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("image/png");
+
+      // Test JPG
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.jpg",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("image/jpeg");
+
+      // Test JPEG
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.jpeg",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("image/jpeg");
+
+      // Test GIF
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.gif",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("image/gif");
+
+      // Test SVG
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.svg",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("image/svg+xml");
+
+      // Test WEBP
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.webp",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("image/webp");
+
+      // Test unknown extension
+      await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/file.unknown",
+        mockLog,
+        mockConfig
+      );
+      expect(mockClient.put.lastCall.args[2].headers["Content-Type"]).to.equal("application/octet-stream");
+    });
+
+    it("should return FAIL on unexpected status code", async function () {
+      const fileBuffer = Buffer.from("image data");
+      
+      fsMock = {
+        existsSync: sinon.stub().returns(true),
+        readFileSync: sinon.stub().returns(fileBuffer),
+      };
+
+      mockClient.put = sinon.stub().resolves({ status: 500 });
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: sinon.stub().returns(mockClient) },
+        fs: fsMock,
+      });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      const result = await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.png",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result.status).to.equal("FAIL");
+      expect(result.description).to.include("Unexpected response status");
+    });
+
+    it("should handle 201 status as success", async function () {
+      const fileBuffer = Buffer.from("image data");
+      
+      fsMock = {
+        existsSync: sinon.stub().returns(true),
+        readFileSync: sinon.stub().returns(fileBuffer),
+      };
+
+      mockClient.put = sinon.stub().resolves({ status: 201 });
+
+      herettoWithMocks = proxyquire("../src/heretto", {
+        axios: { create: sinon.stub().returns(mockClient) },
+        fs: fsMock,
+      });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      const result = await herettoWithMocks.uploadFile(
+        herettoConfig,
+        "file-123",
+        "/tmp/image.png",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result.status).to.equal("PASS");
+    });
+  });
+
+  describe("resolveFileId", function () {
+    const mockLog = sinon.stub();
+    const mockConfig = { logLevel: "info" };
+
+    beforeEach(function () {
+      mockLog.reset();
+    });
+
+    it("should return fileId from sourceIntegration if available", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      const sourceIntegration = { fileId: "existing-file-123" };
+
+      const result = await heretto.resolveFileId(
+        herettoConfig,
+        "/tmp/image.png",
+        sourceIntegration,
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.equal("existing-file-123");
+    });
+
+    it("should return fileId from fileMapping if available", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+        fileMapping: {
+          "/tmp/image.png": { fileId: "mapped-file-456" },
+        },
+      };
+
+      const result = await heretto.resolveFileId(
+        herettoConfig,
+        "/tmp/image.png",
+        {},
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.equal("mapped-file-456");
+    });
+
+    it("should search by filename when not in mapping", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.resolves({
+        data: {
+          hits: [
+            {
+              fileEntity: {
+                ID: "searched-file-789",
+                URI: "/images/image.png",
+                name: "image.png",
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await heretto.resolveFileId(
+        herettoConfig,
+        "/tmp/image.png",
+        {},
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.equal("searched-file-789");
+      // Should cache the result
+      expect(herettoConfig.fileMapping["/tmp/image.png"].fileId).to.equal("searched-file-789");
+    });
+
+    it("should return null when file cannot be found", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      mockClient.post.resolves({
+        data: { hits: [] },
+      });
+
+      const result = await heretto.resolveFileId(
+        herettoConfig,
+        "/tmp/notfound.png",
+        {},
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.null;
+    });
+
+    it("should handle fileMapping without fileId", async function () {
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+        fileMapping: {
+          "/tmp/image.png": { filePath: "/images/image.png" }, // No fileId
+        },
+      };
+
+      mockClient.post.resolves({
+        data: {
+          hits: [
+            {
+              fileEntity: {
+                ID: "found-file-123",
+                URI: "/images/image.png",
+                name: "image.png",
+              },
+            },
+          ],
+        },
+      });
+
+      const result = await heretto.resolveFileId(
+        herettoConfig,
+        "/tmp/image.png",
+        {},
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.equal("found-file-123");
+    });
+  });
+
+  describe("getResourceDependencies", function () {
+    const mockLog = sinon.stub();
+    const mockConfig = { logLevel: "info" };
+
+    beforeEach(function () {
+      mockLog.reset();
+    });
+
+    it("should return mapping with ditamap info", async function () {
+      const ditamapInfo = `<?xml version="1.0"?>
+        <resource>
+          <xmldb-uri>/db/organizations/test-org/content/guide.ditamap</xmldb-uri>
+          <name>guide.ditamap</name>
+          <folder-uuid>folder-123</folder-uuid>
+        </resource>`;
+
+      mockClient.get.resolves({ data: ditamapInfo });
+
+      const herettoConfig = {
+        organizationId: "test-org",
+        username: "user@example.com",
+        apiToken: "token123",
+      };
+
+      // Need a fresh mock for REST API client
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().resolves({ data: ditamapInfo });
+      restClient.get.onSecondCall().rejects({ response: { status: 404 } });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+      expect(result._ditamapId).to.equal("ditamap-uuid");
+    });
+
+    it("should handle dependencies endpoint response", async function () {
+      const ditamapInfo = `<?xml version="1.0"?>
+        <resource>
+          <xmldb-uri>/db/organizations/test-org/content/guide.ditamap</xmldb-uri>
+          <name>guide.ditamap</name>
+          <folder-uuid>folder-123</folder-uuid>
+        </resource>`;
+
+      const dependenciesResponse = `<?xml version="1.0"?>
+        <dependencies>
+          <dependency id="dep-1" uri="/db/organizations/test-org/content/topic1.dita" name="topic1.dita"/>
+          <dependency id="dep-2" uri="/db/organizations/test-org/content/topic2.dita" name="topic2.dita"/>
+        </dependencies>`;
+
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().resolves({ data: ditamapInfo });
+      restClient.get.onSecondCall().resolves({ data: dependenciesResponse });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+      expect(result["content/topic1.dita"]).to.exist;
+      expect(result["content/topic1.dita"].uuid).to.equal("dep-1");
+    });
+
+    it("should handle ditamap fetch failure gracefully", async function () {
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().rejects(new Error("Network error"));
+      restClient.get.onSecondCall().rejects({ response: { status: 404 } });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.deep.equal({});
+    });
+
+    it("should handle alternative XML attribute formats", async function () {
+      const ditamapInfo = `<?xml version="1.0"?>
+        <resource uri="/db/organizations/test-org/content/guide.ditamap" 
+                  name="guide.ditamap" 
+                  folder-uuid="folder-123"/>`;
+
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().resolves({ data: ditamapInfo });
+      restClient.get.onSecondCall().rejects({ response: { status: 404 } });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+    });
+
+    it("should handle nested dependencies", async function () {
+      const ditamapInfo = `<?xml version="1.0"?>
+        <resource>
+          <xmldb-uri>/db/organizations/test-org/content/guide.ditamap</xmldb-uri>
+          <name>guide.ditamap</name>
+          <folder-uuid>folder-123</folder-uuid>
+        </resource>`;
+
+      const dependenciesResponse = `<?xml version="1.0"?>
+        <dependencies>
+          <dependency id="dep-1" uri="/db/organizations/test-org/content/topic1.dita" name="topic1.dita">
+            <dependencies>
+              <dependency id="dep-3" uri="/db/organizations/test-org/images/img.png" name="img.png"/>
+            </dependencies>
+          </dependency>
+        </dependencies>`;
+
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().resolves({ data: ditamapInfo });
+      restClient.get.onSecondCall().resolves({ data: dependenciesResponse });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result["content/topic1.dita"]).to.exist;
+      expect(result["images/img.png"]).to.exist;
+    });
+
+    it("should handle dependencies response with root-level attributes", async function () {
+      const ditamapInfo = `<?xml version="1.0"?>
+        <resource>
+          <xmldb-uri>/db/organizations/test-org/content/guide.ditamap</xmldb-uri>
+          <name>guide.ditamap</name>
+          <folder-uuid>folder-123</folder-uuid>
+        </resource>`;
+
+      // Response format where dependency info is at root level with @_id and @_uri
+      const dependenciesResponse = `<?xml version="1.0"?>
+        <dependency id="single-dep" uri="/db/organizations/test-org/content/single.dita" name="single.dita"/>`;
+
+      const restClient = { get: sinon.stub() };
+      restClient.get.onFirstCall().resolves({ data: ditamapInfo });
+      restClient.get.onSecondCall().resolves({ data: dependenciesResponse });
+
+      const result = await heretto.getResourceDependencies(
+        restClient,
+        "ditamap-uuid",
+        mockLog,
+        mockConfig
+      );
+
+      expect(result).to.be.an("object");
+      // Should extract the single dependency
+      expect(result["content/single.dita"]).to.exist;
+      expect(result["content/single.dita"].uuid).to.equal("single-dep");
+    });
+  });
 });

@@ -144,3 +144,60 @@ log(config, "info", "Your message here");
 ```
 
 Available log levels: `debug`, `info`, `warn`, `error`
+
+## Testing Strategy
+
+### Test Framework
+- **Test runner**: Mocha
+- **Assertions**: Chai (expect style)
+- **Mocking**: Sinon
+- **Coverage**: c8
+
+### Test File Location
+Tests are co-located with source files in `src/`:
+- `src/openapi.js` -> `src/openapi.test.js`
+- `src/arazzo.js` -> `src/arazzo.test.js`
+- `src/utils.js` -> `src/utils.test.js`
+- etc.
+
+### Running Tests
+```bash
+# Run all unit tests
+npm test
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run integration tests
+npm run test:integration
+
+# Run integration tests with coverage
+npm run test:integration:coverage
+
+# Run all tests with coverage
+npm run test:all:coverage
+
+# Check coverage thresholds
+npm run coverage:check
+
+# Run coverage ratchet (ensures coverage doesn't decrease)
+npm run coverage:ratchet
+```
+
+### Coverage Requirements
+Coverage thresholds are defined in `coverage-thresholds.json`. The ratchet mechanism (`scripts/check-coverage-ratchet.js`) ensures coverage only increases over time.
+
+Current thresholds:
+- Lines: 75%
+- Branches: 82%
+- Functions: 86%
+- Statements: 75%
+
+### TDD Workflow
+When adding new features or fixing bugs:
+1. Write tests first (red)
+2. Implement code (green)
+3. Refactor if needed
+4. Verify coverage hasn't decreased
+
+See `.claude/skills/tdd-coverage/SKILL.md` for the complete TDD skill definition.

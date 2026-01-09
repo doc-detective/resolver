@@ -51,8 +51,9 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED_FILES"
           
-          # Check if only documentation files changed
-          if echo "$CHANGED_FILES" | grep -v -E '\.(md|txt|yml|yaml)$|^\.github/' | grep -q .; then
+          # Check if only documentation files changed (md, txt, or docs/ directory)
+          # YAML and .github/ files are NOT considered documentation
+          if echo "$CHANGED_FILES" | grep -v -E '\.(md|txt)$|^docs/' | grep -q .; then
             echo "skip_release=false" >> $GITHUB_OUTPUT
             echo "Code changes detected, proceeding with release"
           else
@@ -92,9 +93,14 @@ jobs:
         if: steps.check_changes.outputs.skip_release == 'false'
         run: npm ci
 
-      - name: Run tests
+      - name: Run tests with coverage
+        id: run_tests
         if: steps.check_changes.outputs.skip_release == 'false'
-        run: npm test
+        run: npm run test:coverage
+
+      - name: Check coverage ratchet
+        if: steps.check_changes.outputs.skip_release == 'false' && steps.run_tests.outcome == 'success'
+        run: npm run coverage:ratchet
 
       - name: Configure Git
         run: |
