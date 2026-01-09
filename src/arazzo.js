@@ -5,11 +5,10 @@ const { log } = require("./utils");
  * Translates an Arazzo description into a Doc Detective test specification
  * @param {Object} arazzoDescription - The Arazzo description object
  * @param {string} workflowId - The ID of the workflow to translate
- * @param {Object} inputs - Input parameters for the workflow
  * @param {Object} [config] - Optional config object for logging
  * @returns {Object} - The Doc Detective test specification object
  */
-function workflowToTest(arazzoDescription, workflowId, inputs, config) {
+function workflowToTest(arazzoDescription, workflowId, config) {
   // Initialize the Doc Detective test specification
   const test = {
     id: arazzoDescription.info.title || `${crypto.randomUUID()}`,
@@ -107,9 +106,29 @@ function workflowToTest(arazzoDescription, workflowId, inputs, config) {
       docDetectiveStep.responseData = {};
       workflowStep.successCriteria.forEach((criterion) => {
         if (criterion.condition.startsWith("$statusCode")) {
-          docDetectiveStep.statusCodes = [
-            parseInt(criterion.condition.split("==")[1].trim()),
-          ];
+          // Guard against missing "==" and extract status code safely
+          const eqIndex = criterion.condition.indexOf("==");
+          if (eqIndex !== -1) {
+            const statusCodeStr = criterion.condition.slice(eqIndex + 2).trim();
+            const statusCode = parseInt(statusCodeStr, 10);
+            if (Number.isFinite(statusCode)) {
+              docDetectiveStep.statusCodes = [statusCode];
+            } else {
+              const message = `Invalid status code in criterion: ${criterion.condition}`;
+              if (config) {
+                log(config, "warning", message);
+              } else {
+                console.warn(message);
+              }
+            }
+          } else {
+            const message = `Missing "==" in status code criterion: ${criterion.condition}`;
+            if (config) {
+              log(config, "warning", message);
+            } else {
+              console.warn(message);
+            }
+          }
         } else if (criterion.context === "$response.body") {
           // This is a simplification; actual JSONPath translation would be more complex
           docDetectiveStep.responseData[criterion.condition] = true;

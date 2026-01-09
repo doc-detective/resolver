@@ -51,8 +51,9 @@ jobs:
           echo "Changed files:"
           echo "$CHANGED_FILES"
           
-          # Check if only documentation files changed
-          if echo "$CHANGED_FILES" | grep -v -E '\.(md|txt|yml|yaml)$|^\.github/' | grep -q .; then
+          # Check if only documentation files changed (md, txt, or docs/ directory)
+          # YAML and .github/ files are NOT considered documentation
+          if echo "$CHANGED_FILES" | grep -v -E '\.(md|txt)$|^docs/' | grep -q .; then
             echo "skip_release=false" >> $GITHUB_OUTPUT
             echo "Code changes detected, proceeding with release"
           else
