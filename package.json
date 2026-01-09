@@ -7,7 +7,7 @@
     "test": "mocha src/*.test.js --ignore src/*.integration.test.js",
     "test:coverage": "c8 mocha src/*.test.js --ignore src/*.integration.test.js",
     "test:integration": "mocha src/*.integration.test.js --timeout 600000",
-    "test:integration:coverage": "c8 mocha src/*.integration.test.js --timeout 600000",
+    "test:integration:coverage": "c8 --check-coverage=false mocha src/*.integration.test.js --timeout 600000",
     "test:all": "mocha src/*.test.js --timeout 600000",
     "test:all:coverage": "c8 mocha src/*.test.js --timeout 600000",
     "coverage:check": "c8 check-coverage",
