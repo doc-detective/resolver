@@ -683,7 +683,16 @@ async function parseContent({
     switch (statement.type) {
       case "testStart":
         statementContent = statement[1] || statement[0];
-        test = parseObject({ stringifiedObject: statementContent }) as DetectedTest;
+        const parsedTest = parseObject({ stringifiedObject: statementContent });
+        
+        // Skip if parseObject returned a non-object (e.g., plain string like "ignore start")
+        // This can happen when regex patterns overlap (e.g., "test ignore start" matches both
+        // testStart and ignoreStart patterns). The original JS code silently ignored this
+        // case due to non-strict mode behavior.
+        if (typeof parsedTest !== "object" || parsedTest === null) {
+          break;
+        }
+        test = parsedTest as DetectedTest;
 
         // If v2 schema, convert to v3
         const testWithV2 = test as DetectedTest & { id?: string; file?: string; setup?: string; cleanup?: string };
