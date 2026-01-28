@@ -14,7 +14,7 @@
  * - Required environment variables are not set
  */
 
-const heretto = require("./heretto");
+const heretto = require("../dist/heretto");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");

@@ -2,7 +2,7 @@ const assert = require("assert");
 const sinon = require("sinon");
 const proxyquire = require("proxyquire");
 const fs = require("fs");
-const { detectTests, resolveTests, detectAndResolveTests } = require("./index");
+const { detectTests, resolveTests, detectAndResolveTests } = require("../dist/index");
 
 before(async function () {
   const { expect } = await import("chai");
@@ -25,9 +25,9 @@ describe("detectTests", function () {
     parseTestsStub = sinon.stub().resolves(specs);
     logStub = sinon.stub();
 
-    detectTests = proxyquire("./index", {
-      "./config": { setConfig: setConfigStub },
-      "./utils": {
+    detectTests = proxyquire("../dist/index", {
+      "../dist/config": { setConfig: setConfigStub },
+      "../dist/utils": {
         qualifyFiles: qualifyFilesStub,
         parseTests: parseTestsStub,
         log: logStub,

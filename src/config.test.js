@@ -1,7 +1,7 @@
 const assert = require("assert");
 const sinon = require("sinon");
 const proxyquire = require("proxyquire");
-const { setConfig } = require("./config");
+const { setConfig } = require("../dist/config");
 
 before(async function () {
   const { expect } = await import("chai");
@@ -24,10 +24,10 @@ describe("envMerge", function () {
     replaceEnvsStub = sinon.stub().returnsArg(0);
 
     // Setup proxyquire
-    setConfig = proxyquire("./config", {
+    setConfig = proxyquire("../dist/config", {
       "doc-detective-common": { validate: validStub },
-      "./utils": { log: logStub, loadEnvs: loadEnvsStub, replaceEnvs: replaceEnvsStub },
-      "./openapi": { loadDescription: sinon.stub().resolves({}) }
+      "../dist/utils": { log: logStub, loadEnvs: loadEnvsStub, replaceEnvs: replaceEnvsStub },
+      "../dist/openapi": { loadDescription: sinon.stub().resolves({}) }
     }).setConfig;
   });
 
@@ -404,7 +404,7 @@ function deepObjectExpect(actual, expected) {
 }
 
 describe("resolveConcurrentRunners", function () {
-  const { resolveConcurrentRunners } = require("./config");
+  const { resolveConcurrentRunners } = require("../dist/config");
   const os = require("os");
   let originalCpus;
 
