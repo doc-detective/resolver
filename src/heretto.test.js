@@ -24,7 +24,7 @@ describe("Heretto Integration", function () {
     axiosCreateStub = sinon.stub().returns(mockClient);
 
     // Use proxyquire to inject stubbed axios
-    heretto = proxyquire("../src/heretto", {
+    heretto = proxyquire("../dist/heretto", {
       axios: {
         create: axiosCreateStub,
       },
@@ -623,7 +623,7 @@ describe("Heretto Integration", function () {
       };
       
       // Create heretto with mocked dependencies
-      herettoWithMocks = proxyquire("../src/heretto", {
+      herettoWithMocks = proxyquire("../dist/heretto", {
         axios: { create: axiosCreateStub },
         fs: fsMock,
         "adm-zip": admZipMock,

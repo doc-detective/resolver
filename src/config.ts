@@ -1,58 +1,87 @@
-const os = require("os");
-const { validate } = require("doc-detective-common");
-const { log, loadEnvs, replaceEnvs } = require("./utils");
-const { loadDescription } = require("./openapi");
-
-exports.setConfig = setConfig;
-exports.resolveConcurrentRunners = resolveConcurrentRunners;
+import os from "os";
+import { validate } from "doc-detective-common";
+import { log, loadEnvs, replaceEnvs } from "./utils";
+import { loadDescription } from "./openapi";
+import type {
+  Config,
+  FileType,
+  OpenApiDefinition,
+  Platform,
+  MarkupPattern,
+} from "./types";
 
 /**
- * Deep merge two objects, with override properties taking precedence
- * @param {Object} target - The target object to merge into
- * @param {Object} override - The override object containing properties to merge
- * @returns {Object} A new object with merged properties
+ * Extended FileType for internal use during config processing
  */
-function deepMerge(target, override) {
-  const result = { ...target };
+interface ExtendedFileType extends FileType {
+  extends?: string;
+}
 
-  for (const key in override) {
-    if (override.hasOwnProperty(key)) {
-      if (
-        override[key] != null &&
-        typeof override[key] === "object" &&
-        !Array.isArray(override[key])
-      ) {
-        // If both target and override have objects at this key, deep merge them
-        if (
-          result[key] != null &&
-          typeof result[key] === "object" &&
-          !Array.isArray(result[key])
-        ) {
-          result[key] = deepMerge(result[key], override[key]);
-        } else {
-          // If target doesn't have an object at this key, just assign the override
-          result[key] = deepMerge({}, override[key]);
-        }
-      } else {
-        // For primitive values, arrays, or null, just override
-        result[key] = override[key];
-      }
-    }
-  }
-
-  return result;
+/**
+ * OpenAPI config with definition loaded
+ */
+interface OpenApiConfigWithDefinition extends OpenApiDefinition {
+  definition?: Record<string, unknown>;
 }
 
 // Map of Node-detected platforms to common-term equivalents
-const platformMap = {
+const platformMap: Record<string, Platform> = {
   darwin: "mac",
   linux: "linux",
   win32: "windows",
 };
 
+/**
+ * Deep merge two objects, with override properties taking precedence
+ * @param target - The target object to merge into
+ * @param override - The override object containing properties to merge
+ * @returns A new object with merged properties
+ */
+function deepMerge<T extends Record<string, unknown>>(
+  target: T,
+  override: Partial<T>
+): T {
+  const result = { ...target } as Record<string, unknown>;
+
+  for (const key in override) {
+    if (Object.prototype.hasOwnProperty.call(override, key)) {
+      const overrideValue = override[key];
+      if (
+        overrideValue != null &&
+        typeof overrideValue === "object" &&
+        !Array.isArray(overrideValue)
+      ) {
+        // If both target and override have objects at this key, deep merge them
+        const targetValue = result[key];
+        if (
+          targetValue != null &&
+          typeof targetValue === "object" &&
+          !Array.isArray(targetValue)
+        ) {
+          result[key] = deepMerge(
+            targetValue as Record<string, unknown>,
+            overrideValue as Record<string, unknown>
+          );
+        } else {
+          // If target doesn't have an object at this key, just assign the override
+          result[key] = deepMerge(
+            {} as Record<string, unknown>,
+            overrideValue as Record<string, unknown>
+          );
+        }
+      } else {
+        // For primitive values, arrays, or null, just override
+        result[key] = overrideValue;
+      }
+    }
+  }
+
+  return result as T;
+}
+
 // List of default file type definitions
 // TODO: Add defaults for all supported files
-let defaultFileTypes = {
+let defaultFileTypes: Record<string, FileType> = {
   asciidoc_1_0: {
     name: "asciidoc",
     extensions: ["adoc", "asciidoc", "asc"],
@@ -291,7 +320,7 @@ let defaultFileTypes = {
           },
         ],
       },
-    ],
+    ] as MarkupPattern[],
   },
   html_1_0: {
     name: "html",
@@ -439,9 +468,10 @@ let defaultFileTypes = {
           },
         ],
       },
-    ],
+    ] as MarkupPattern[],
   },
 };
+
 // Set keyword versions
 defaultFileTypes = {
   ...defaultFileTypes,
@@ -455,48 +485,66 @@ defaultFileTypes = {
  * Resolves the concurrentRunners configuration value from various input formats
  * to a concrete integer for the core execution engine.
  *
- * @param {Object} config - The configuration object
- * @returns {number} The resolved concurrent runners value
+ * @param config - The configuration object
+ * @returns The resolved concurrent runners value
  */
-function resolveConcurrentRunners(config) {
+export function resolveConcurrentRunners(
+  config: Config
+): number {
   if (config.concurrentRunners === true) {
     // Cap at 4 only for the boolean convenience option
     return Math.min(os.cpus().length, 4);
   }
   // Respect explicit numeric values and default
-  return config.concurrentRunners || 1;
+  return (config.concurrentRunners as number) || 1;
 }
 
 /**
  * Sets up and validates the configuration object for Doc Detective
  * @async
- * @param {Object} config - The configuration object to process
- * @returns {Promise<Object>} The processed and validated configuration object
- * @throws Will exit process with code 1 if configuration is invalid
+ * @param config - The configuration object to process
+ * @returns The processed and validated configuration object
+ * @throws Will throw error if configuration is invalid
  */
-async function setConfig({ config }) {
+export async function setConfig({
+  config,
+}: {
+  config: Config;
+}): Promise<Config> {
   // Set environment variables from file
-  if (config.loadVariables) await loadEnvs(config.loadVariables);
+  if (config.loadVariables) {
+    const loadVariablesArray = Array.isArray(config.loadVariables) 
+      ? config.loadVariables 
+      : [config.loadVariables];
+    for (const envFile of loadVariablesArray) {
+      await loadEnvs(envFile);
+    }
+  }
 
   // Load environment variables for `config`
-  config = replaceEnvs(config);
+  config = replaceEnvs(config) as Config;
 
   // Apply config overrides from DOC_DETECTIVE environment variable
   if (process.env.DOC_DETECTIVE) {
     try {
-      const docDetectiveEnv = JSON.parse(process.env.DOC_DETECTIVE);
+      const docDetectiveEnv = JSON.parse(process.env.DOC_DETECTIVE) as {
+        config?: Partial<Config>;
+      };
       if (
         docDetectiveEnv.config &&
         typeof docDetectiveEnv.config === "object"
       ) {
         // Apply config overrides using deep merge to preserve nested properties
-        config = deepMerge(config, docDetectiveEnv.config);
+        config = deepMerge(
+          config as Record<string, unknown>,
+          docDetectiveEnv.config as Record<string, unknown>
+        ) as Config;
       }
     } catch (error) {
       log(
         config,
         "warning",
-        `Invalid JSON in DOC_DETECTIVE environment variable: ${error.message}. Ignoring config overrides.`
+        `Invalid JSON in DOC_DETECTIVE environment variable: ${(error as Error).message}. Ignoring config overrides.`
       );
     }
   }
@@ -512,10 +560,11 @@ async function setConfig({ config }) {
     );
     throw new Error(`Invalid config object: ${validityCheck.errors}. Exiting.`);
   }
-  config = validityCheck.object;
+  config = validityCheck.object as Config;
 
   // Replace fileType strings with objects
-  config.fileTypes = config.fileTypes.map((fileType) => {
+  const fileTypesArray = config.fileTypes as unknown as (string | FileType)[];
+  config.fileTypes = fileTypesArray.map((fileType) => {
     if (typeof fileType === "object") return fileType;
     const fileTypeObject = defaultFileTypes[fileType];
     if (typeof fileTypeObject !== "undefined") return fileTypeObject;
@@ -527,30 +576,34 @@ async function setConfig({ config }) {
     throw new Error(
       `Invalid config. "${fileType}" isn't a valid fileType value.`
     );
-  });
+  }) as FileType[];
 
   // TODO: Combine extended fileTypes with overrides
 
   // Standardize value formats
   if (typeof config.input === "string") config.input = [config.input];
   if (typeof config.beforeAny === "string") {
-    if (config.beforeAny === "") {
+    const beforeAny = config.beforeAny;
+    if (beforeAny === "") {
       config.beforeAny = [];
     } else {
-      config.beforeAny = [config.beforeAny];
+      config.beforeAny = [beforeAny];
     }
   }
   if (typeof config.afterAll === "string") {
-    if (config.afterAll === "") {
+    const afterAll = config.afterAll;
+    if (afterAll === "") {
       config.afterAll = [];
     } else {
-      config.afterAll = [config.afterAll];
+      config.afterAll = [afterAll];
     }
   }
   if (typeof config.fileTypes === "string") {
     config.fileTypes = [config.fileTypes];
   }
-  config.fileTypes = config.fileTypes.map((fileType) => {
+
+  const fileTypes = config.fileTypes as unknown as ExtendedFileType[];
+  config.fileTypes = fileTypes.map((fileType) => {
     if (fileType.inlineStatements) {
       if (typeof fileType.inlineStatements.testStart === "string")
         fileType.inlineStatements.testStart = [
@@ -571,7 +624,8 @@ async function setConfig({ config }) {
     }
     if (fileType.markup) {
       fileType.markup = fileType.markup.map((markup) => {
-        if (typeof markup?.regex === "string") markup.regex = [markup.regex];
+        if (typeof markup?.regex === "string")
+          markup.regex = [markup.regex];
         return markup;
       });
     }
@@ -592,7 +646,9 @@ async function setConfig({ config }) {
             '".'
         );
       }
-      const extendedFileType = JSON.parse(JSON.stringify(extendedFileTypeRaw));
+      const extendedFileType = JSON.parse(
+        JSON.stringify(extendedFileTypeRaw)
+      ) as FileType;
       if (extendedFileType) {
         if (!fileType.name) {
           fileType.name = extendedFileType.name;
@@ -611,7 +667,13 @@ async function setConfig({ config }) {
         // Merge property values for inlineStatements children
         if (extendedFileType?.inlineStatements) {
           if (fileType.inlineStatements === undefined) {
-            fileType.inlineStatements = {};
+            fileType.inlineStatements = {
+              testStart: [],
+              testEnd: [],
+              ignoreStart: [],
+              ignoreEnd: [],
+              step: [],
+            };
           }
           // Merge each inlineStatements property using Set to ensure uniqueness
           const keys = [
@@ -620,7 +682,7 @@ async function setConfig({ config }) {
             "ignoreStart",
             "ignoreEnd",
             "step",
-          ];
+          ] as const;
           for (const key of keys) {
             if (
               extendedFileType?.inlineStatements?.[key] ||
@@ -640,12 +702,12 @@ async function setConfig({ config }) {
         if (extendedFileType?.markup) {
           fileType.markup = fileType.markup || [];
           extendedFileType.markup.forEach((extendedMarkup) => {
-            const existingMarkupIndex = fileType.markup.findIndex(
+            const existingMarkupIndex = fileType.markup!.findIndex(
               (markup) => markup.name === extendedMarkup.name
             );
             if (existingMarkupIndex === -1) {
               // Add to markup array
-              fileType.markup.push(extendedMarkup);
+              fileType.markup!.push(extendedMarkup);
             }
           });
         }
@@ -671,29 +733,30 @@ async function setConfig({ config }) {
  * Loads OpenAPI descriptions for all configured OpenAPI integrations.
  *
  * @async
- * @param {Object} config - The configuration object.
- * @returns {Promise<void>} - A promise that resolves when all descriptions are loaded.
+ * @param config - The configuration object.
+ * @returns A promise that resolves when all descriptions are loaded.
  *
  * @remarks
  * This function modifies the input config object by:
  * 1. Adding a 'definition' property to each OpenAPI configuration with the loaded description.
  * 2. Removing any OpenAPI configurations where the description failed to load.
  */
-async function loadDescriptions(config) {
+async function loadDescriptions(config: Config): Promise<void> {
   if (config?.integrations?.openApi) {
-    for (const openApiConfig of config.integrations.openApi) {
+    for (const openApiConfig of config.integrations
+      .openApi as OpenApiConfigWithDefinition[]) {
       try {
         openApiConfig.definition = await loadDescription(
-          openApiConfig.descriptionPath
+          openApiConfig.descriptionPath!
         );
       } catch (error) {
         log(
           config,
           "error",
-          `Failed to load OpenAPI description from ${openApiConfig.descriptionPath}: ${error.message}`
+          `Failed to load OpenAPI description from ${openApiConfig.descriptionPath}: ${(error as Error).message}`
         );
         // Remove the failed OpenAPI configuration
-        config.integrations.openApi = config.integrations.openApi.filter(
+        config.integrations.openApi = config.integrations.openApi!.filter(
           (item) => item !== openApiConfig
         );
       }
@@ -702,13 +765,10 @@ async function loadDescriptions(config) {
 }
 
 // Detect aspects of the environment running Doc Detective.
-function getEnvironment() {
-  const environment = {};
-  // Detect system architecture
-  environment.arch = os.arch();
-  // Detect system platform
-  environment.platform = platformMap[process.platform];
-  // Detect working directory
-  environment.workingDirectory = process.cwd();
-  return environment;
+function getEnvironment(): Config["environment"] {
+  return {
+    arch: os.arch(),
+    platform: platformMap[process.platform],
+    workingDirectory: process.cwd(),
+  };
 }
